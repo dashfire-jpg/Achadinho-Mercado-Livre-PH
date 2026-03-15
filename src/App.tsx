@@ -103,7 +103,16 @@ export default function App() {
       path
     };
     console.error('Firestore Error: ', JSON.stringify(errInfo));
-    setToast({ message: 'Erro de permissão ou conexão com o banco de dados.', type: 'error' });
+    
+    if (errInfo.error.includes('permission-denied') || errInfo.error.includes('Missing or insufficient permissions')) {
+      setToast({ 
+        message: 'Erro de permissão: Certifique se está logado como admin e se o domínio do Netlify está autorizado no Firebase.', 
+        type: 'error' 
+      });
+    } else {
+      setToast({ message: 'Erro ao realizar operação no banco de dados.', type: 'error' });
+    }
+    
     return errInfo;
   };
 
@@ -175,53 +184,59 @@ export default function App() {
   const handleSmartImport = async () => {
     if (!importText.trim()) return;
     
-    setIsImporting(true);
-    try {
-      let pageContent = "";
-      let targetUrl = importText;
-
-      // If it's a link, try to fetch content first
-      if (importText.includes('http')) {
-        try {
-          const scrapeRes = await fetch('/api/scrape', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: importText })
-          });
-          if (scrapeRes.ok) {
-            const scrapeData = await scrapeRes.json();
-            pageContent = `Conteúdo da página: ${scrapeData.content}`;
-            if (scrapeData.imageUrl) {
-              setNewProduct(prev => ({ ...prev, imageUrl: scrapeData.imageUrl }));
+      setIsImporting(true);
+      try {
+        let pageContent = "";
+        
+        // Try backend scraper first, but don't fail if it's not there (e.g. Netlify static)
+        if (importText.includes('http')) {
+          try {
+            const scrapeRes = await fetch('/api/scrape', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url: importText })
+            });
+            if (scrapeRes.ok) {
+              const scrapeData = await scrapeRes.json();
+              pageContent = `Conteúdo da página: ${scrapeData.content}`;
+              if (scrapeData.imageUrl) {
+                setNewProduct(prev => ({ ...prev, imageUrl: scrapeData.imageUrl }));
+              }
             }
+          } catch (e) {
+            console.warn("Backend scraper indisponível, a IA tentará buscar informações diretamente.", e);
           }
-        } catch (e) {
-          console.warn("Falha ao raspar conteúdo, tentando apenas com o link", e);
         }
-      }
 
-      const aiKey = process.env.GEMINI_API_KEY || dynamicAiKey;
-      if (!aiKey) {
-        console.error("GEMINI_API_KEY não encontrada no ambiente.");
-        setToast({ message: 'IA indisponível: Chave não configurada.', type: 'error' });
-        setIsImporting(false);
-        return;
-      }
+        const aiKey = process.env.GEMINI_API_KEY || dynamicAiKey;
+        if (!aiKey) {
+          console.error("GEMINI_API_KEY não encontrada.");
+          setToast({ message: 'IA indisponível: Chave não configurada. Se estiver no Netlify, adicione GEMINI_API_KEY às variáveis de ambiente.', type: 'error' });
+          setIsImporting(false);
+          return;
+        }
 
-      const ai = new GoogleGenAI({ apiKey: aiKey });
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `Extraia as informações do produto deste texto ou link: "${importText}". 
-        ${pageContent ? `Aqui está o conteúdo real da página para ajudar: ${pageContent}` : ''}
+        const ai = new GoogleGenAI({ apiKey: aiKey });
         
-        Retorne APENAS um JSON no formato: 
-        { "title": "nome", "price": 0.0, "originalPrice": 0.0, "imageUrl": "url", "platform": "Mercado Livre ou Shopee", "category": "Eletrônicos/Casa/Moda/Beleza/Games", "description": "breve" }
+        // Use googleSearch tool if we couldn't get page content and it's a URL
+        const tools = (!pageContent && importText.includes('http')) ? [{ googleSearch: {} }] : [];
         
-        IMPORTANTE:
-        1. Se for um link de afiliado, tente encontrar o preço real e a imagem original do produto no conteúdo fornecido.
-        2. Se não encontrar a imagem, use uma URL do Picsum.
-        3. A descrição deve ser curta e atrativa.`,
-      });
+        const response = await ai.models.generateContent({
+          model: "gemini-3-flash-preview",
+          contents: `Extraia as informações do produto deste texto ou link: "${importText}". 
+          ${pageContent ? `Aqui está o conteúdo real da página para ajudar: ${pageContent}` : 'Se for um link, use a pesquisa para encontrar o título, preço e imagem do produto.'}
+          
+          Retorne APENAS um JSON no formato: 
+          { "title": "nome", "price": 0.0, "originalPrice": 0.0, "imageUrl": "url", "platform": "Mercado Livre ou Shopee", "category": "Eletrônicos/Casa/Moda/Beleza/Games", "description": "breve" }
+          
+          IMPORTANTE:
+          1. Se for um link de afiliado, tente encontrar o preço real e a imagem original do produto.
+          2. Se não encontrar a imagem, use uma URL do Picsum (https://picsum.photos/seed/product/800/600).
+          3. A descrição deve ser curta e atrativa.`,
+          config: {
+            tools: tools as any
+          }
+        });
 
       const text = response.text || '';
       const jsonMatch = text.match(/\{.*\}/s);
