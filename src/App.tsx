@@ -200,17 +200,19 @@ export default function App() {
           });
           if (scrapeRes.ok) {
             const scrapeData = await scrapeRes.json();
-            pageContent = `Conteúdo da página: ${scrapeData.content}`;
+            if (scrapeData.content && scrapeData.content.length > 10) {
+              pageContent = `Conteúdo da página: ${scrapeData.content}`;
+            }
             if (scrapeData.imageUrl) {
               setNewProduct(prev => ({ ...prev, imageUrl: scrapeData.imageUrl }));
             }
           }
         } catch (e) {
-          console.warn("Backend scraper indisponível, usando IA direta.");
+          console.warn("Backend scraper indisponível ou falhou, usando IA direta.");
         }
       }
 
-      const aiKey = localAiKey || process.env.GEMINI_API_KEY || dynamicAiKey;
+      const aiKey = localAiKey || dynamicAiKey;
       if (!aiKey) {
         setToast({ 
           message: 'IA indisponível: Chave não configurada. Clique na engrenagem para configurar.', 
@@ -225,48 +227,62 @@ export default function App() {
         // Use googleSearch tool if we couldn't get page content and it's a URL
         const tools = (!pageContent && importText.includes('http')) ? [{ googleSearch: {} }] : [];
         
-        const response = await ai.models.generateContent({
-          model: "gemini-3-flash-preview",
-          contents: `Extraia as informações do produto deste texto ou link: "${importText}". 
-          ${pageContent ? `Aqui está o conteúdo real da página para ajudar: ${pageContent}` : 'Se for um link, use a pesquisa para encontrar o título, preço e imagem do produto.'}
-          
-          Retorne APENAS um JSON no formato: 
-          { "title": "nome", "price": 0.0, "originalPrice": 0.0, "imageUrl": "url", "platform": "Mercado Livre ou Shopee", "category": "Eletrônicos/Casa/Moda/Beleza/Games", "description": "breve" }
-          
-          IMPORTANTE:
-          1. Se for um link de afiliado, tente encontrar o preço real e a imagem original do produto.
-          2. Se não encontrar a imagem, use uma URL do Picsum (https://picsum.photos/seed/product/800/600).
-          3. A descrição deve ser curta e atrativa.`,
-          config: {
-            tools: tools as any
-          }
-        });
+        try {
+          const prompt = `Extraia as informações do produto deste texto ou link: "${importText}". 
+            ${pageContent ? `Aqui está o conteúdo real da página para ajudar: ${pageContent}` : 'Se for um link, use a pesquisa para encontrar o título, preço e imagem do produto.'}
+            
+            Retorne APENAS um JSON no formato: 
+            { "title": "nome", "price": 0.0, "originalPrice": 0.0, "imageUrl": "url", "platform": "Mercado Livre ou Shopee", "category": "Eletrônicos/Casa/Moda/Beleza/Games", "description": "breve" }
+            
+            IMPORTANTE:
+            1. Se for um link de afiliado, tente encontrar o preço real e a imagem original do produto.
+            2. Se não encontrar a imagem, use uma URL do Picsum (https://picsum.photos/seed/product/800/600).
+            3. A descrição deve ser curta e atrativa.`;
 
-      const text = response.text || '';
-      const jsonMatch = text.match(/\{.*\}/s);
-      if (jsonMatch) {
-        const data = JSON.parse(jsonMatch[0]);
-        
-        setNewProduct(prev => {
-          const updated = {
-            ...prev,
-            ...data,
-            affiliateLink: importText.includes('http') ? importText : (prev.affiliateLink || '')
-          };
-          
-          // Se a IA retornou uma imagem genérica (picsum) mas já temos uma imagem real do scraper, mantém a real
-          if (data.imageUrl?.includes('picsum.photos') && prev.imageUrl && !prev.imageUrl.includes('picsum.photos')) {
-            updated.imageUrl = prev.imageUrl;
-          }
-          
-          return updated;
-        });
+          const response = await ai.models.generateContent({
+            model: "gemini-3-flash-preview",
+            contents: prompt,
+            config: {
+              tools: tools as any
+            }
+          });
 
-        setImportText('');
-        setToast({ message: "Dados extraídos com sucesso!", type: 'success' });
-      } else {
-        setToast({ message: "Não foi possível extrair os dados automaticamente.", type: 'error' });
-      }
+          const text = response.text || '';
+          const jsonMatch = text.match(/\{.*\}/s);
+          if (jsonMatch) {
+            const data = JSON.parse(jsonMatch[0]);
+            
+            setNewProduct(prev => {
+              const updated = {
+                ...prev,
+                ...data,
+                affiliateLink: importText.includes('http') ? importText : (prev.affiliateLink || '')
+              };
+              
+              // Se a IA retornou uma imagem genérica (picsum) mas já temos uma imagem real do scraper, mantém a real
+              if (data.imageUrl?.includes('picsum.photos') && prev.imageUrl && !prev.imageUrl.includes('picsum.photos')) {
+                updated.imageUrl = prev.imageUrl;
+              }
+              
+              return updated;
+            });
+
+            setImportText('');
+            setToast({ message: "Dados extraídos com sucesso!", type: 'success' });
+          } else {
+            console.error("IA não retornou JSON válido:", text);
+            setToast({ message: "A IA não conseguiu formatar os dados. Tente novamente ou preencha manualmente.", type: 'error' });
+          }
+        } catch (aiError: any) {
+          console.error("Erro na chamada da IA:", aiError);
+          let errorMsg = "Erro na IA: Falha na comunicação.";
+          if (aiError.message?.includes('API key not valid')) {
+            errorMsg = "Chave da IA inválida. Verifique nas configurações.";
+          } else if (aiError.message?.includes('Quota exceeded')) {
+            errorMsg = "Limite da IA atingido. Tente novamente mais tarde.";
+          }
+          setToast({ message: errorMsg, type: 'error' });
+        }
     } catch (error) {
       console.error("Erro na importação inteligente:", error);
       setToast({ message: "Erro ao processar importação.", type: 'error' });
