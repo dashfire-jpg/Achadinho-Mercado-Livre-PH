@@ -6,7 +6,7 @@ import { ConfirmModal } from './components/ConfirmModal';
 import { CATEGORIES } from './constants';
 import { Product, Category } from './types';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShoppingBag, Star, Zap, Bell, Plus, X, Link as LinkIcon, Tag, Image as ImageIcon, Info, Sparkles, Wand2, AlertCircle, Pencil, Upload } from 'lucide-react';
+import { ShoppingBag, Star, Zap, Bell, Plus, X, Link as LinkIcon, Tag, Image as ImageIcon, Info, Sparkles, Wand2, AlertCircle, Pencil, Upload, Settings } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { 
   collection, 
@@ -82,6 +82,8 @@ export default function App() {
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [dynamicAiKey, setDynamicAiKey] = useState<string | null>(null);
+  const [localAiKey, setLocalAiKey] = useState<string>(localStorage.getItem('gemini_api_key') || '');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const handleFirestoreError = (error: unknown, operationType: OperationType, path: string | null) => {
     const errInfo: FirestoreErrorInfo = {
@@ -184,39 +186,41 @@ export default function App() {
   const handleSmartImport = async () => {
     if (!importText.trim()) return;
     
-      setIsImporting(true);
-      try {
-        let pageContent = "";
-        
-        // Try backend scraper first, but don't fail if it's not there (e.g. Netlify static)
-        if (importText.includes('http')) {
-          try {
-            const scrapeRes = await fetch('/api/scrape', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ url: importText })
-            });
-            if (scrapeRes.ok) {
-              const scrapeData = await scrapeRes.json();
-              pageContent = `Conteúdo da página: ${scrapeData.content}`;
-              if (scrapeData.imageUrl) {
-                setNewProduct(prev => ({ ...prev, imageUrl: scrapeData.imageUrl }));
-              }
+    setIsImporting(true);
+    try {
+      let pageContent = "";
+      
+      // Try backend scraper first
+      if (importText.includes('http')) {
+        try {
+          const scrapeRes = await fetch('/api/scrape', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: importText })
+          });
+          if (scrapeRes.ok) {
+            const scrapeData = await scrapeRes.json();
+            pageContent = `Conteúdo da página: ${scrapeData.content}`;
+            if (scrapeData.imageUrl) {
+              setNewProduct(prev => ({ ...prev, imageUrl: scrapeData.imageUrl }));
             }
-          } catch (e) {
-            console.warn("Backend scraper indisponível, a IA tentará buscar informações diretamente.", e);
           }
+        } catch (e) {
+          console.warn("Backend scraper indisponível, usando IA direta.");
         }
+      }
 
-        const aiKey = process.env.GEMINI_API_KEY || dynamicAiKey;
-        if (!aiKey) {
-          console.error("GEMINI_API_KEY não encontrada.");
-          setToast({ message: 'IA indisponível: Chave não configurada. Se estiver no Netlify, adicione GEMINI_API_KEY às variáveis de ambiente.', type: 'error' });
-          setIsImporting(false);
-          return;
-        }
+      const aiKey = localAiKey || process.env.GEMINI_API_KEY || dynamicAiKey;
+      if (!aiKey) {
+        setToast({ 
+          message: 'IA indisponível: Chave não configurada. Clique na engrenagem para configurar.', 
+          type: 'error' 
+        });
+        setIsImporting(false);
+        return;
+      }
 
-        const ai = new GoogleGenAI({ apiKey: aiKey });
+      const ai = new GoogleGenAI({ apiKey: aiKey });
         
         // Use googleSearch tool if we couldn't get page content and it's a URL
         const tools = (!pageContent && importText.includes('http')) ? [{ googleSearch: {} }] : [];
@@ -418,6 +422,60 @@ export default function App() {
         onClose={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
       />
 
+      {/* Settings Modal */}
+      {isSettingsOpen && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl border border-black/5"
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                <Settings className="text-orange-500" />
+                Configuração IA
+              </h2>
+              <button onClick={() => setIsSettingsOpen(false)} className="text-gray-400 hover:text-gray-900 transition-colors">
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Gemini API Key</label>
+                <input
+                  type="password"
+                  value={localAiKey}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setLocalAiKey(val);
+                    localStorage.setItem('gemini_api_key', val);
+                  }}
+                  placeholder="Cole sua chave aqui..."
+                  className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-5 py-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
+                />
+                <p className="text-xs text-gray-500 mt-3 leading-relaxed">
+                  Esta chave é salva <strong>apenas no seu navegador</strong>. Ela permite que a importação inteligente funcione mesmo em servidores estáticos como o Netlify.
+                </p>
+              </div>
+              
+              <div className="p-4 bg-orange-50 border border-orange-100 rounded-2xl">
+                <p className="text-xs text-orange-700 leading-relaxed">
+                  <strong>Dica Netlify:</strong> Se as postagens falharem, lembre-se de adicionar o domínio do seu site no painel do Firebase (Authentication {'>'} Settings {'>'} Authorized Domains).
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsSettingsOpen(false)}
+              className="w-full mt-8 bg-black hover:bg-gray-800 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-black/10"
+            >
+              Salvar e Fechar
+            </button>
+          </motion.div>
+        </div>
+      )}
+
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-white pt-16 pb-24 border-b border-black/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -441,6 +499,13 @@ export default function App() {
               <div className="flex flex-wrap gap-4">
                 {isAdmin && (
                   <>
+                    <button 
+                      onClick={() => setIsSettingsOpen(true)}
+                      className="p-4 bg-white border border-black/10 text-gray-900 rounded-2xl font-bold hover:bg-gray-50 transition-all flex items-center gap-2 shadow-lg shadow-black/5"
+                      title="Configurações da IA"
+                    >
+                      <Settings size={20} />
+                    </button>
                     <button 
                       onClick={() => setIsModalOpen(true)}
                       className="px-8 py-4 bg-black text-white rounded-2xl font-bold hover:bg-gray-800 transition-all flex items-center gap-2 shadow-lg shadow-black/10"
