@@ -98,6 +98,13 @@ async function startServer() {
     }
   });
 
+  // API Route to get config
+  app.get("/api/config", (req, res) => {
+    res.json({ 
+      geminiApiKey: process.env.GEMINI_API_KEY || process.env.API_KEY 
+    });
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

@@ -81,6 +81,7 @@ export default function App() {
 
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [dynamicAiKey, setDynamicAiKey] = useState<string | null>(null);
 
   const handleFirestoreError = (error: unknown, operationType: OperationType, path: string | null) => {
     const errInfo: FirestoreErrorInfo = {
@@ -135,6 +136,14 @@ export default function App() {
 
   // Load products from Firestore
   useEffect(() => {
+    // Fetch dynamic config (API Key)
+    fetch('/api/config')
+      .then(res => res.json())
+      .then(data => {
+        if (data.geminiApiKey) setDynamicAiKey(data.geminiApiKey);
+      })
+      .catch(err => console.error("Erro ao carregar configuração:", err));
+
     const q = query(collection(db, 'products'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const productsData: Product[] = [];
@@ -191,7 +200,7 @@ export default function App() {
         }
       }
 
-      const aiKey = process.env.GEMINI_API_KEY;
+      const aiKey = process.env.GEMINI_API_KEY || dynamicAiKey;
       if (!aiKey) {
         console.error("GEMINI_API_KEY não encontrada no ambiente.");
         setToast({ message: 'IA indisponível: Chave não configurada.', type: 'error' });
