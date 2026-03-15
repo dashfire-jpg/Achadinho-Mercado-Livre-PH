@@ -5,9 +5,10 @@ import { motion, AnimatePresence } from 'motion/react';
 interface NavbarProps {
   isAdmin: boolean;
   onAdminLogin: () => void;
+  onLogout: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ isAdmin, onAdminLogin }) => {
+export const Navbar: React.FC<NavbarProps> = ({ isAdmin, onAdminLogin, onLogout }) => {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
 
   return (
@@ -27,12 +28,21 @@ export const Navbar: React.FC<NavbarProps> = ({ isAdmin, onAdminLogin }) => {
             <a href="#" className="text-sm font-medium text-gray-600 hover:text-black transition-colors">Início</a>
             <a href="#" className="text-sm font-medium text-gray-600 hover:text-black transition-colors">Mais Vendidos</a>
             <a href="#" className="text-sm font-medium text-gray-600 hover:text-black transition-colors">Cupons</a>
-            <button 
-              onClick={onAdminLogin}
-              className={`text-sm font-bold transition-colors ${isAdmin ? 'text-orange-500' : 'text-gray-400 hover:text-black'}`}
-            >
-              {isAdmin ? 'Painel Admin' : 'Admin'}
-            </button>
+            {isAdmin ? (
+              <button 
+                onClick={onLogout}
+                className="text-sm font-bold text-orange-500 hover:text-orange-600 transition-colors"
+              >
+                Sair
+              </button>
+            ) : (
+              <button 
+                onClick={onAdminLogin}
+                className="text-sm font-bold text-gray-400 hover:text-black transition-colors"
+              >
+                Admin
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-4">
@@ -67,15 +77,27 @@ export const Navbar: React.FC<NavbarProps> = ({ isAdmin, onAdminLogin }) => {
               <a href="#" className="block px-3 py-4 text-base font-medium text-gray-900 border-b border-black/5">Início</a>
               <a href="#" className="block px-3 py-4 text-base font-medium text-gray-900 border-b border-black/5">Mais Vendidos</a>
               <a href="#" className="block px-3 py-4 text-base font-medium text-gray-900 border-b border-black/5">Cupons</a>
-              <button 
-                onClick={() => {
-                  onAdminLogin();
-                  setIsMenuOpen(false);
-                }}
-                className={`w-full text-left px-3 py-4 text-base font-bold border-b border-black/5 ${isAdmin ? 'text-orange-500' : 'text-gray-900'}`}
-              >
-                {isAdmin ? 'Painel Admin' : 'Admin'}
-              </button>
+              {isAdmin ? (
+                <button 
+                  onClick={() => {
+                    onLogout();
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-4 text-base font-bold border-b border-black/5 text-orange-500"
+                >
+                  Sair do Painel
+                </button>
+              ) : (
+                <button 
+                  onClick={() => {
+                    onAdminLogin();
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-4 text-base font-bold border-b border-black/5 text-gray-900"
+                >
+                  Admin
+                </button>
+              )}
               <a href="#" className="block px-3 py-4 text-base font-medium text-gray-900">Sobre</a>
             </div>
           </motion.div>

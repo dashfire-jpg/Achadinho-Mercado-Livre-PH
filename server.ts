@@ -50,25 +50,38 @@ async function startServer() {
         imageUrl = $('.ui-pdp-gallery__figure__image').first().attr('src') || 
                    $('.ui-pdp-image.ui-pdp-gallery__figure__image').first().attr('src') ||
                    $('img.ui-pdp-image').first().attr('src') ||
-                   $('meta[property="og:image"]').attr('content') || "";
+                   $('meta[property="og:image"]').attr('content') || 
+                   $('.ui-pdp-gallery__figure__image').first().attr('data-zoom') || "";
       } 
       // Shopee specific
       else if (url.includes('shopee.com.br')) {
         imageUrl = $('meta[property="og:image"]').attr('content') || 
                    $('img[src*="cv-br"]').first().attr('src') ||
-                   $('img.product-featured-image').attr('src') || "";
+                   $('img.product-featured-image').attr('src') || 
+                   $('.product-briefing img').first().attr('src') || "";
       }
       // Amazon specific
       else if (url.includes('amazon.com.br')) {
         imageUrl = $('#landingImage').attr('src') || 
                    $('#imgBlkFront').attr('src') ||
-                   $('meta[property="og:image"]').attr('content') || "";
+                   $('meta[property="og:image"]').attr('content') || 
+                   $('#main-image').attr('src') || "";
       }
       // Generic fallback
       else {
         imageUrl = $('meta[property="og:image"]').attr('content') || 
+                   $('meta[name="twitter:image"]').attr('content') ||
                    $('link[rel="image_src"]').attr('href') || 
-                   $('img[src*="product"]').first().attr('src') || "";
+                   $('img[src*="product"]').first().attr('src') || 
+                   $('img').first().attr('src') || "";
+      }
+
+      // Clean up image URL if it's relative
+      if (imageUrl && imageUrl.startsWith('//')) {
+        imageUrl = 'https:' + imageUrl;
+      } else if (imageUrl && imageUrl.startsWith('/')) {
+        const urlObj = new URL(url);
+        imageUrl = urlObj.origin + imageUrl;
       }
 
       const bodyText = $('body').text().replace(/\s+/g, ' ').trim().substring(0, 5000); // Limit to 5k chars

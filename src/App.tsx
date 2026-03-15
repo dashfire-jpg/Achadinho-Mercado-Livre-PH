@@ -2,17 +2,71 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
 import { ProductCard } from './components/ProductCard';
 import { LoginModal } from './components/LoginModal';
-import { MOCK_PRODUCTS, CATEGORIES } from './constants';
+import { ConfirmModal } from './components/ConfirmModal';
+import { CATEGORIES } from './constants';
 import { Product, Category } from './types';
 import { motion, AnimatePresence } from 'motion/react';
 import { ShoppingBag, Star, Zap, Bell, Plus, X, Link as LinkIcon, Tag, Image as ImageIcon, Info, Sparkles, Wand2, AlertCircle, Pencil, Upload } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
+import { 
+  collection, 
+  onSnapshot, 
+  addDoc, 
+  deleteDoc, 
+  doc, 
+  updateDoc, 
+  query, 
+  orderBy, 
+  serverTimestamp,
+  getDocFromServer
+} from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
+import { db, auth } from './firebase';
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    tenantId: string | null | undefined;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  }
+}
 
 export default function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<Category>('Todos');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
   const [importText, setImportText] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -25,29 +79,77 @@ export default function App() {
     category: 'Eletrônicos'
   });
 
-  // Load products
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+
+  const handleFirestoreError = (error: unknown, operationType: OperationType, path: string | null) => {
+    const errInfo: FirestoreErrorInfo = {
+      error: error instanceof Error ? error.message : String(error),
+      authInfo: {
+        userId: auth.currentUser?.uid,
+        email: auth.currentUser?.email,
+        emailVerified: auth.currentUser?.emailVerified,
+        isAnonymous: auth.currentUser?.isAnonymous,
+        tenantId: auth.currentUser?.tenantId,
+        providerInfo: auth.currentUser?.providerData.map(provider => ({
+          providerId: provider.providerId,
+          displayName: provider.displayName,
+          email: provider.email,
+          photoUrl: provider.photoURL
+        })) || []
+      },
+      operationType,
+      path
+    };
+    console.error('Firestore Error: ', JSON.stringify(errInfo));
+    setToast({ message: 'Erro de permissão ou conexão com o banco de dados.', type: 'error' });
+    return errInfo;
+  };
+
+  // Handle Auth State
   useEffect(() => {
-    const hasReset = localStorage.getItem('achadinhos_reset_v2');
-    if (!hasReset) {
-      localStorage.removeItem('achadinhos_products');
-      localStorage.setItem('achadinhos_reset_v2', 'true');
-      setProducts(MOCK_PRODUCTS);
-    } else {
-      const saved = localStorage.getItem('achadinhos_products');
-      if (saved) {
-        setProducts(JSON.parse(saved));
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user && user.email === 'dashfire@gmail.com') {
+        setIsAdmin(true);
       } else {
-        setProducts(MOCK_PRODUCTS);
+        setIsAdmin(false);
       }
-    }
+      setIsAuthReady(true);
+    });
+    return () => unsubscribe();
   }, []);
 
-  // Save products
+  // Test connection
   useEffect(() => {
-    if (products.length > 0) {
-      localStorage.setItem('achadinhos_products', JSON.stringify(products));
+    async function testConnection() {
+      try {
+        await getDocFromServer(doc(db, 'test', 'connection'));
+      } catch (error) {
+        if(error instanceof Error && error.message.includes('the client is offline')) {
+          console.error("Please check your Firebase configuration. ");
+        }
+      }
     }
-  }, [products]);
+    testConnection();
+  }, []);
+
+  // Load products from Firestore
+  useEffect(() => {
+    const q = query(collection(db, 'products'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const productsData: Product[] = [];
+      snapshot.forEach((doc) => {
+        productsData.push({ id: doc.id, ...doc.data() } as Product);
+      });
+      setProducts(productsData);
+      setIsInitialLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'products');
+      setIsInitialLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (toast) {
@@ -89,7 +191,15 @@ export default function App() {
         }
       }
 
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const aiKey = process.env.GEMINI_API_KEY;
+      if (!aiKey) {
+        console.error("GEMINI_API_KEY não encontrada no ambiente.");
+        setToast({ message: 'IA indisponível: Chave não configurada.', type: 'error' });
+        setIsImporting(false);
+        return;
+      }
+
+      const ai = new GoogleGenAI({ apiKey: aiKey });
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: `Extraia as informações do produto deste texto ou link: "${importText}". 
@@ -137,37 +247,41 @@ export default function App() {
     }
   };
 
-  const handleAddProduct = (e: React.FormEvent) => {
+  const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProduct.title || !newProduct.price || !newProduct.affiliateLink || !newProduct.imageUrl) {
       setToast({ message: 'Por favor, preencha os campos obrigatórios.', type: 'error' });
       return;
     }
 
-    const product: Product = {
-      id: editingProductId || Date.now().toString(),
+    const productData = {
       title: newProduct.title!,
       description: newProduct.description || '',
       price: Number(newProduct.price),
-      originalPrice: newProduct.originalPrice ? Number(newProduct.originalPrice) : undefined,
+      originalPrice: newProduct.originalPrice ? Number(newProduct.originalPrice) : null,
       imageUrl: newProduct.imageUrl!,
       affiliateLink: newProduct.affiliateLink!,
-      platform: newProduct.platform as any,
-      category: newProduct.category as any,
+      platform: newProduct.platform,
+      category: newProduct.category,
       isHot: newProduct.isHot || false,
+      createdAt: editingProductId ? (newProduct as any).createdAt : serverTimestamp(),
     };
 
-    if (editingProductId) {
-      setProducts(products.map(p => p.id === editingProductId ? product : p));
-      setToast({ message: 'Produto atualizado com sucesso!', type: 'success' });
-    } else {
-      setProducts([product, ...products]);
-      setToast({ message: 'Produto cadastrado com sucesso!', type: 'success' });
+    try {
+      if (editingProductId) {
+        await updateDoc(doc(db, 'products', editingProductId), productData);
+        setToast({ message: 'Produto atualizado com sucesso!', type: 'success' });
+      } else {
+        await addDoc(collection(db, 'products'), productData);
+        setToast({ message: 'Produto cadastrado com sucesso!', type: 'success' });
+      }
+      
+      setIsModalOpen(false);
+      setEditingProductId(null);
+      setNewProduct({ platform: 'Mercado Livre', category: 'Eletrônicos' });
+    } catch (error) {
+      handleFirestoreError(error, editingProductId ? OperationType.UPDATE : OperationType.CREATE, `products/${editingProductId || ''}`);
     }
-    
-    setIsModalOpen(false);
-    setEditingProductId(null);
-    setNewProduct({ platform: 'Mercado Livre', category: 'Eletrônicos' });
   };
 
   const openEditModal = (product: Product) => {
@@ -187,19 +301,43 @@ export default function App() {
     }
   };
 
-  const removeProduct = (id: string) => {
-    setProducts(products.filter(p => p.id !== id));
-    setToast({ message: 'Produto removido com sucesso!', type: 'success' });
+  const removeProduct = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'products', id));
+      setToast({ message: 'Produto removido com sucesso!', type: 'success' });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `products/${id}`);
+    }
   };
 
-  const clearAllProducts = () => {
-    setProducts([]);
-    localStorage.removeItem('achadinhos_products');
-    setToast({ message: 'Todos os produtos foram removidos.', type: 'success' });
+  const clearAllProducts = async () => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Remover Tudo',
+      message: 'Tem certeza que deseja remover TODOS os produtos? Esta ação não pode ser desfeita.',
+      onConfirm: async () => {
+        try {
+          const deletePromises = products.map(p => deleteDoc(doc(db, 'products', p.id)));
+          await Promise.all(deletePromises);
+          setToast({ message: 'Todos os produtos foram removidos.', type: 'success' });
+        } catch (error) {
+          handleFirestoreError(error, OperationType.DELETE, 'products/all');
+        }
+      }
+    });
   };
 
   const handleAdminLogin = () => {
     setIsLoginModalOpen(true);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await auth.signOut();
+      setToast({ message: 'Sessão encerrada.', type: 'success' });
+    } catch (error) {
+      console.error('Erro ao sair:', error);
+    }
   };
 
   const onLoginSuccess = (password: string) => {
@@ -208,9 +346,22 @@ export default function App() {
     setToast({ message: 'Acesso concedido! Modo administrador ativado.', type: 'success' });
   };
 
+  if (isInitialLoading) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-4">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full"
+        />
+        <p className="text-gray-500 font-medium animate-pulse">Carregando as melhores ofertas...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#F8F9FA] font-sans text-gray-900">
-      <Navbar isAdmin={isAdmin} onAdminLogin={handleAdminLogin} />
+      <Navbar isAdmin={isAdmin} onAdminLogin={handleAdminLogin} onLogout={handleLogout} />
       
       {/* Toast Notification */}
       <AnimatePresence>
@@ -233,6 +384,14 @@ export default function App() {
         isOpen={isLoginModalOpen} 
         onClose={() => setIsLoginModalOpen(false)} 
         onLogin={onLoginSuccess} 
+      />
+
+      <ConfirmModal
+        isOpen={confirmConfig.isOpen}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        onConfirm={confirmConfig.onConfirm}
+        onClose={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
       />
 
       {/* Hero Section */}

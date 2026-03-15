@@ -1,0 +1,28 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "A product offer shared on the platform",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Product title" },
+        "description": { "type": "string", "description": "Product description" },
+        "price": { "type": "number", "description": "Current price" },
+        "originalPrice": { "type": "number", "description": "Original price before discount" },
+        "imageUrl": { "type": "string", "description": "URL of the product image" },
+        "affiliateLink": { "type": "string", "description": "Affiliate link to the product" },
+        "platform": { "type": "string", "description": "Platform (e.g., Mercado Livre, Shopee)" },
+        "category": { "type": "string", "description": "Product category" },
+        "isHot": { "type": "boolean", "description": "Whether the product is a hot deal" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the product was added" }
+      },
+      "required": ["title", "price", "imageUrl", "affiliateLink", "platform", "createdAt"]
+    }
+  },
+  "firestore": {
+    "products": {
+      "schema": "Product",
+      "description": "Collection of product offers"
+    }
+  }
+}
