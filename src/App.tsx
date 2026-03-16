@@ -380,6 +380,12 @@ export default function App() {
     };
 
     try {
+      if (!auth.currentUser) {
+        setToast({ message: 'Erro: Você precisa estar logado com Google para salvar produtos.', type: 'error' });
+        setIsLoginModalOpen(true);
+        return;
+      }
+
       if (editingProductId) {
         await updateDoc(doc(db, 'products', editingProductId), productData);
         setToast({ message: 'Produto atualizado com sucesso!', type: 'success' });
@@ -415,6 +421,11 @@ export default function App() {
 
   const removeProduct = async (id: string) => {
     try {
+      if (!auth.currentUser) {
+        setToast({ message: 'Erro: Você precisa estar logado com Google para remover produtos.', type: 'error' });
+        setIsLoginModalOpen(true);
+        return;
+      }
       await deleteDoc(doc(db, 'products', id));
       setToast({ message: 'Produto removido com sucesso!', type: 'success' });
     } catch (error) {
@@ -429,6 +440,11 @@ export default function App() {
       message: 'Tem certeza que deseja remover TODOS os produtos? Esta ação não pode ser desfeita.',
       onConfirm: async () => {
         try {
+          if (!auth.currentUser) {
+            setToast({ message: 'Erro: Você precisa estar logado com Google para remover produtos.', type: 'error' });
+            setIsLoginModalOpen(true);
+            return;
+          }
           const deletePromises = products.map(p => deleteDoc(doc(db, 'products', p.id)));
           await Promise.all(deletePromises);
           setToast({ message: 'Todos os produtos foram removidos.', type: 'success' });
