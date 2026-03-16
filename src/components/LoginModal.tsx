@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { X, Lock, AlertCircle, Mail, Key } from 'lucide-react';
+import { X, Lock, AlertCircle, Mail, Key, UserPlus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { auth } from '../firebase';
-import { GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -11,12 +11,23 @@ interface LoginModalProps {
 }
 
 export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin }) => {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState('dashfire@gmail.com');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [loginMethod, setLoginMethod] = useState<'google' | 'email'>('email');
+
+  const handleLocalLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Fallback local para não perder acesso ao painel
+    if (password === 'Redfire*1') {
+      onLogin(password);
+      onClose();
+    } else {
+      setAuthError('Senha incorreta.');
+    }
+  };
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,13 +39,33 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
       onClose();
     } catch (error: any) {
       console.error('Erro ao fazer login com E-mail:', error);
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        setAuthError('E-mail ou senha incorretos.');
-      } else if (error.code === 'auth/invalid-email') {
-        setAuthError('E-mail inválido.');
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+        // Se o usuário não existe, tentamos o login local apenas para o painel
+        if (password === 'Redfire*1') {
+          onLogin(password);
+          onClose();
+          return;
+        }
+        setAuthError('Usuário não encontrado no Firebase. Use o botão "Criar Minha Conta" abaixo.');
       } else {
-        setAuthError('Erro ao entrar. Verifique se o login por e-mail está ativado no Firebase.');
+        setAuthError('Erro: ' + error.message);
       }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCreateAccount = async () => {
+    if (!email || !password) {
+      setAuthError('Preencha e-mail e senha primeiro.');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+      setAuthError('Conta criada com sucesso! Agora você pode entrar.');
+    } catch (error: any) {
+      setAuthError('Erro ao criar conta: ' + error.message + '. Verifique se o login por e-mail está ativado no Firebase.');
     } finally {
       setIsLoading(false);
     }
@@ -167,6 +198,16 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
                     className="w-full bg-black text-white py-4 rounded-xl font-bold hover:bg-gray-800 transition-all shadow-lg disabled:opacity-50"
                   >
                     {isLoading ? 'Entrando...' : 'Entrar'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleCreateAccount}
+                    disabled={isLoading}
+                    className="w-full bg-white border border-gray-200 text-gray-600 py-3 rounded-xl text-xs font-bold hover:bg-gray-50 transition-all flex items-center justify-center gap-2"
+                  >
+                    <UserPlus size={14} />
+                    Criar Minha Conta no Firebase
                   </button>
                 </form>
               )}
