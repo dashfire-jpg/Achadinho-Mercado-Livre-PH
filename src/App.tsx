@@ -345,6 +345,9 @@ export default function App() {
           if (errorStr.includes('API key not valid') || aiError.message?.includes('API key not valid')) {
             errorMsg = "Chave da IA inválida. Clique na engrenagem para ajustar.";
             setIsSettingsOpen(true);
+          } else if (errorStr.includes('leaked') || aiError.message?.includes('leaked')) {
+            errorMsg = "Esta chave foi bloqueada pelo Google por segurança. Por favor, use uma nova chave na engrenagem.";
+            setIsSettingsOpen(true);
           } else if (aiError.message?.includes('Quota exceeded')) {
             errorMsg = "Limite da IA atingido. Tente novamente mais tarde.";
           }
@@ -548,6 +551,9 @@ export default function App() {
             <div className="space-y-6">
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">Gemini API Key</label>
+                <p className="text-[10px] text-gray-500 mb-2">
+                  Obtenha uma chave gratuita em: <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-orange-500 underline">Google AI Studio</a>
+                </p>
                 <div className="flex gap-2">
                   <input
                     type="password"

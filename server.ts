@@ -99,7 +99,7 @@ async function createServer() {
 
   // API Route to get config
   app.get("/api/config", (req, res) => {
-    const key = process.env.GEMINI_API_KEY || process.env.API_KEY || "AIzaSyC51HKm3hBRxXWwXJZ7AF3BWG-d13cyALA";
+    const key = process.env.GEMINI_API_KEY || process.env.API_KEY;
     // Filter out placeholder keys
     const isPlaceholder = !key || key === "MY_GEMINI_API_KEY" || key.startsWith("TODO");
     res.json({ 
