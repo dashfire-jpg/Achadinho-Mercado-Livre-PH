@@ -91,6 +91,42 @@ export default function App() {
   const [localAiKey, setLocalAiKey] = useState<string>(localStorage.getItem('gemini_api_key') || '');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
+  const [isTestingKey, setIsTestingKey] = useState(false);
+
+  const testApiKey = async (keyToTest: string) => {
+    if (!keyToTest) {
+      setToast({ message: "Insira uma chave para testar.", type: 'error' });
+      return;
+    }
+    
+    setIsTestingKey(true);
+    try {
+      const ai = new GoogleGenAI({ apiKey: keyToTest });
+      const model = ai.models.get({ model: "gemini-1.5-flash" });
+      await model; // Just checking if we can get the model info
+      
+      // Try a very simple generation to be sure
+      const result = await ai.models.generateContent({
+        model: "gemini-1.5-flash",
+        contents: "Oi",
+        config: { maxOutputTokens: 1 }
+      });
+      
+      if (result.text) {
+        setToast({ message: "Chave válida! Conexão estabelecida com sucesso.", type: 'success' });
+      }
+    } catch (err: any) {
+      console.error("Erro ao testar chave:", err);
+      let msg = "Chave inválida ou erro de conexão.";
+      if (err.message?.includes('API key not valid')) msg = "Chave API inválida. Verifique se copiou corretamente.";
+      else if (err.message?.includes('Quota exceeded')) msg = "Limite de cota atingido para esta chave.";
+      
+      setToast({ message: msg, type: 'error' });
+    } finally {
+      setIsTestingKey(false);
+    }
+  };
+
   const handleFirestoreError = (error: unknown, operationType: OperationType, path: string | null) => {
     const errInfo: FirestoreErrorInfo = {
       error: error instanceof Error ? error.message : String(error),
@@ -241,10 +277,11 @@ export default function App() {
       const aiKey = localAiKey || dynamicAiKey;
       if (!aiKey) {
         setToast({ 
-          message: 'IA indisponível: Chave não configurada. Clique na engrenagem para configurar.', 
+          message: 'IA indisponível: Chave não configurada. Clique na engrenagem (área do admin) para configurar.', 
           type: 'error' 
         });
         setIsImporting(false);
+        setIsSettingsOpen(true);
         return;
       }
 
@@ -306,12 +343,8 @@ export default function App() {
           // Check for invalid API key error
           const errorStr = JSON.stringify(aiError);
           if (errorStr.includes('API key not valid') || aiError.message?.includes('API key not valid')) {
-            errorMsg = "Chave da IA inválida ou não configurada. Clique na engrenagem para ajustar.";
-            // Clear local key if it's likely the culprit
-            if (localAiKey) {
-              setLocalAiKey('');
-              localStorage.removeItem('gemini_api_key');
-            }
+            errorMsg = "Chave da IA inválida. Clique na engrenagem para ajustar.";
+            setIsSettingsOpen(true);
           } else if (aiError.message?.includes('Quota exceeded')) {
             errorMsg = "Limite da IA atingido. Tente novamente mais tarde.";
           }
@@ -499,17 +532,26 @@ export default function App() {
             <div className="space-y-6">
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">Gemini API Key</label>
-                <input
-                  type="password"
-                  value={localAiKey}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setLocalAiKey(val);
-                    localStorage.setItem('gemini_api_key', val);
-                  }}
-                  placeholder="Cole sua chave aqui..."
-                  className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-5 py-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    value={localAiKey}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setLocalAiKey(val);
+                      localStorage.setItem('gemini_api_key', val);
+                    }}
+                    placeholder="Cole sua chave aqui..."
+                    className="flex-1 bg-gray-50 border border-gray-200 rounded-2xl px-5 py-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
+                  />
+                  <button
+                    onClick={() => testApiKey(localAiKey)}
+                    disabled={isTestingKey}
+                    className="px-4 bg-orange-100 text-orange-600 rounded-2xl font-bold hover:bg-orange-200 transition-colors disabled:opacity-50"
+                  >
+                    {isTestingKey ? '...' : 'Testar'}
+                  </button>
+                </div>
                 <p className="text-xs text-gray-500 mt-3 leading-relaxed">
                   Esta chave é salva <strong>apenas no seu navegador</strong>. Ela permite que a importação inteligente funcione mesmo em servidores estáticos como o Netlify.
                 </p>
