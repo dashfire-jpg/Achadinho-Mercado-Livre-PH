@@ -14,6 +14,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
   const [password, setPassword] = useState('');
   const [error, setError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,12 +30,20 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
 
   const handleGoogleLogin = async () => {
     setIsLoading(true);
+    setAuthError(null);
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao fazer login com Google:', error);
+      if (error.code === 'auth/unauthorized-domain') {
+        setAuthError('Domínio não autorizado no Firebase. Adicione "achadinho-mercado-livre-ph.vercel.app" nos domínios autorizados do console Firebase.');
+      } else if (error.code === 'auth/popup-blocked') {
+        setAuthError('O navegador bloqueou a janela de login. Por favor, permita popups para este site.');
+      } else {
+        setAuthError('Erro ao conectar com Google. Tente novamente.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -92,6 +101,17 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
                 </svg>
                 {isLoading ? 'Conectando...' : 'Entrar com Google'}
               </button>
+
+              {authError && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-3 bg-red-50 border border-red-100 rounded-xl flex items-start gap-2 text-red-600 text-xs leading-relaxed"
+                >
+                  <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                  {authError}
+                </motion.div>
+              )}
 
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
