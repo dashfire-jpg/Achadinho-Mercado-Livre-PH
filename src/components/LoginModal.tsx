@@ -33,22 +33,28 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
     e.preventDefault();
     setIsLoading(true);
     setAuthError(null);
+    
+    // Tenta o login no Firebase
     try {
       await signInWithEmailAndPassword(auth, email, password);
       onLogin(password);
       onClose();
     } catch (error: any) {
       console.error('Erro ao fazer login com E-mail:', error);
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-        // Se o usuário não existe, tentamos o login local apenas para o painel
-        if (password === 'Redfire*1') {
-          onLogin(password);
-          onClose();
-          return;
-        }
-        setAuthError('Usuário não encontrado no Firebase. Use o botão "Criar Minha Conta" abaixo.');
+      
+      // SE A SENHA FOR A CORRETA, DAMOS ACESSO LOCAL INDEPENDENTE DO ERRO DO FIREBASE
+      if (password === 'Redfire*1') {
+        onLogin(password);
+        onClose();
+        return;
+      }
+
+      if (error.code === 'auth/operation-not-allowed') {
+        setAuthError('O login por e-mail está DESATIVADO no seu Firebase. Ative em: Authentication -> Sign-in method -> Email/Password.');
+      } else if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+        setAuthError('Usuário não encontrado ou senha incorreta no Firebase.');
       } else {
-        setAuthError('Erro: ' + error.message);
+        setAuthError('Erro no Firebase: ' + error.message);
       }
     } finally {
       setIsLoading(false);
