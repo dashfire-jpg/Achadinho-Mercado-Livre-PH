@@ -7,10 +7,9 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-async function startServer() {
+async function createServer() {
   const app = express();
-  const PORT = 3000;
-
+  
   app.use(express.json());
 
   // API Route to scrape product info
@@ -100,8 +99,11 @@ async function startServer() {
 
   // API Route to get config
   app.get("/api/config", (req, res) => {
+    const key = process.env.GEMINI_API_KEY || process.env.API_KEY;
+    // Filter out placeholder keys
+    const isPlaceholder = !key || key === "MY_GEMINI_API_KEY" || key.startsWith("TODO");
     res.json({ 
-      geminiApiKey: process.env.GEMINI_API_KEY || process.env.API_KEY 
+      geminiApiKey: isPlaceholder ? null : key 
     });
   });
 
@@ -120,9 +122,19 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  return app;
 }
 
-startServer();
+export const appPromise = createServer();
+
+// Only listen if this file is run directly (not in Vercel or as a module)
+const isDirectRun = import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith('server.ts');
+
+if (isDirectRun && !process.env.VERCEL) {
+  appPromise.then(app => {
+    const PORT = 3000;
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  });
+}

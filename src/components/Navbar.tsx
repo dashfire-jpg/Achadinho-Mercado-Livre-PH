@@ -1,14 +1,15 @@
 import React from 'react';
-import { Search, ShoppingBag, Menu, X } from 'lucide-react';
+import { Search, ShoppingBag, Menu, X, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface NavbarProps {
   isAdmin: boolean;
   onAdminLogin: () => void;
   onLogout: () => void;
+  onOpenSettings?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ isAdmin, onAdminLogin, onLogout }) => {
+export const Navbar: React.FC<NavbarProps> = ({ isAdmin, onAdminLogin, onLogout, onOpenSettings }) => {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
 
   return (
@@ -29,12 +30,21 @@ export const Navbar: React.FC<NavbarProps> = ({ isAdmin, onAdminLogin, onLogout 
             <a href="#" className="text-sm font-medium text-gray-600 hover:text-black transition-colors">Mais Vendidos</a>
             <a href="#" className="text-sm font-medium text-gray-600 hover:text-black transition-colors">Cupons</a>
             {isAdmin ? (
-              <button 
-                onClick={onLogout}
-                className="text-sm font-bold text-orange-500 hover:text-orange-600 transition-colors"
-              >
-                Sair
-              </button>
+              <div className="flex items-center gap-4">
+                <button 
+                  onClick={onOpenSettings}
+                  className="p-2 text-gray-400 hover:text-black transition-colors"
+                  title="Configurações da IA"
+                >
+                  <Settings size={20} />
+                </button>
+                <button 
+                  onClick={onLogout}
+                  className="text-sm font-bold text-orange-500 hover:text-orange-600 transition-colors"
+                >
+                  Sair
+                </button>
+              </div>
             ) : (
               <button 
                 onClick={onAdminLogin}

@@ -81,7 +81,13 @@ export default function App() {
 
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const [dynamicAiKey, setDynamicAiKey] = useState<string | null>(null);
+  const [dynamicAiKey, setDynamicAiKey] = useState<string | null>(() => {
+    const key = import.meta.env.VITE_GEMINI_API_KEY;
+    if (key && key !== "MY_GEMINI_API_KEY" && !key.startsWith("TODO")) {
+      return key;
+    }
+    return null;
+  });
   const [localAiKey, setLocalAiKey] = useState<string>(localStorage.getItem('gemini_api_key') || '');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
@@ -112,7 +118,7 @@ export default function App() {
         type: 'error' 
       });
     } else {
-      setToast({ message: 'Erro ao realizar operação no banco de dados.', type: 'error' });
+      setToast({ message: `Erro no banco: ${errInfo.error}`, type: 'error' });
     }
     
     return errInfo;
@@ -147,13 +153,33 @@ export default function App() {
 
   // Load products from Firestore
   useEffect(() => {
-    // Fetch dynamic config (API Key)
-    fetch('/api/config')
-      .then(res => res.json())
-      .then(data => {
-        if (data.geminiApiKey) setDynamicAiKey(data.geminiApiKey);
-      })
-      .catch(err => console.error("Erro ao carregar configuração:", err));
+    // Fetch dynamic config (API Key) if not already set by VITE_GEMINI_API_KEY
+    if (!dynamicAiKey) {
+      fetch('/api/config')
+        .then(async res => {
+          if (!res.ok) return null;
+          const contentType = res.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+            return res.json();
+          }
+          // If it's not JSON, it might be the SPA fallback (HTML)
+          const text = await res.text();
+          if (text.trim().startsWith('{')) {
+            try {
+              return JSON.parse(text);
+            } catch (e) {
+              return null;
+            }
+          }
+          return null;
+        })
+        .then(data => {
+          if (data && data.geminiApiKey) setDynamicAiKey(data.geminiApiKey);
+        })
+        .catch(err => {
+          console.log("Configuração dinâmica não disponível via API");
+        });
+    }
 
     const q = query(collection(db, 'products'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -276,11 +302,20 @@ export default function App() {
         } catch (aiError: any) {
           console.error("Erro na chamada da IA:", aiError);
           let errorMsg = "Erro na IA: Falha na comunicação.";
-          if (aiError.message?.includes('API key not valid')) {
-            errorMsg = "Chave da IA inválida. Verifique nas configurações.";
+          
+          // Check for invalid API key error
+          const errorStr = JSON.stringify(aiError);
+          if (errorStr.includes('API key not valid') || aiError.message?.includes('API key not valid')) {
+            errorMsg = "Chave da IA inválida ou não configurada. Clique na engrenagem para ajustar.";
+            // Clear local key if it's likely the culprit
+            if (localAiKey) {
+              setLocalAiKey('');
+              localStorage.removeItem('gemini_api_key');
+            }
           } else if (aiError.message?.includes('Quota exceeded')) {
             errorMsg = "Limite da IA atingido. Tente novamente mais tarde.";
           }
+          
           setToast({ message: errorMsg, type: 'error' });
         }
     } catch (error) {
@@ -405,7 +440,12 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] font-sans text-gray-900">
-      <Navbar isAdmin={isAdmin} onAdminLogin={handleAdminLogin} onLogout={handleLogout} />
+      <Navbar 
+        isAdmin={isAdmin} 
+        onAdminLogin={handleAdminLogin} 
+        onLogout={handleLogout} 
+        onOpenSettings={() => setIsSettingsOpen(true)}
+      />
       
       {/* Toast Notification */}
       <AnimatePresence>
