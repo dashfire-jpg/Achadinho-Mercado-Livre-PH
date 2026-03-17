@@ -17,6 +17,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [loginMethod, setLoginMethod] = useState<'google' | 'email'>('email');
+  const [showEmergencyInfo, setShowEmergencyInfo] = useState(false);
 
   const handleLocalLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,10 +122,43 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
             </div>
 
             <div className="p-8 space-y-6">
-              <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl mb-2">
-                <p className="text-[10px] text-blue-700 leading-relaxed">
-                  <strong>Atenção:</strong> Se o Google der erro de "unauthorized-domain", você deve adicionar <strong>achadinho-mercado-livre-ph.vercel.app</strong> no <a href="https://console.firebase.google.com/project/gen-lang-client-0289840928/authentication/settings" target="_blank" rel="noopener noreferrer" className="underline font-bold">Console do Firebase</a>.
-                </p>
+              <div className="p-4 bg-red-50 border border-red-100 rounded-xl mb-2">
+                <div className="flex items-start gap-2">
+                  <AlertCircle size={16} className="text-red-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-[11px] text-red-700 font-bold leading-tight">
+                      ERRO DE DOMÍNIO DETECTADO
+                    </p>
+                    <p className="text-[10px] text-red-600 mt-1 leading-relaxed">
+                      O Google bloqueou o login neste site. Para corrigir, você precisa autorizar o domínio <strong>achadinho-mercado-livre-ph.vercel.app</strong> no seu painel do Firebase.
+                    </p>
+                    <button 
+                      onClick={() => setShowEmergencyInfo(!showEmergencyInfo)}
+                      className="text-[10px] text-red-800 underline mt-2 font-bold"
+                    >
+                      {showEmergencyInfo ? 'Ocultar instruções' : 'Como corrigir agora?'}
+                    </button>
+                  </div>
+                </div>
+                
+                {showEmergencyInfo && (
+                  <motion.div 
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    className="mt-4 pt-4 border-t border-red-200 space-y-3"
+                  >
+                    <p className="text-[10px] text-red-800">
+                      1. Acesse o <a href="https://console.firebase.google.com/project/gen-lang-client-0289840928/authentication/settings" target="_blank" rel="noopener noreferrer" className="underline font-black">Console do Firebase</a>.
+                    </p>
+                    <p className="text-[10px] text-red-800">
+                      2. Vá em <strong>Domínios Autorizados</strong> e adicione: <br/>
+                      <code className="bg-white/50 px-1 rounded text-[9px] font-mono">achadinho-mercado-livre-ph.vercel.app</code>
+                    </p>
+                    <p className="text-[10px] text-red-800 font-bold">
+                      Enquanto isso, use o login por E-mail abaixo com a senha mestra.
+                    </p>
+                  </motion.div>
+                )}
               </div>
 
               <div className="flex p-1 bg-gray-100 rounded-xl">
@@ -224,10 +258,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="p-3 bg-red-50 border border-red-100 rounded-xl flex items-start gap-2 text-red-600 text-xs leading-relaxed"
+                  className="p-3 bg-red-50 border border-red-100 rounded-xl space-y-2"
                 >
-                  <AlertCircle size={16} className="shrink-0 mt-0.5" />
-                  {authError}
+                  <div className="flex items-start gap-2 text-red-600 text-xs leading-relaxed">
+                    <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                    {authError}
+                  </div>
+                  <p className="text-[9px] text-red-800 font-bold bg-white/50 p-2 rounded-lg">
+                    DICA: Digite a senha mestra "Redfire*1" na aba E-mail para entrar sem erros.
+                  </p>
                 </motion.div>
               )}
             </div>

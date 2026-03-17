@@ -148,6 +148,11 @@ export default function App() {
     };
     console.error('Firestore Error: ', JSON.stringify(errInfo));
     
+    // Silenciar erros de domínio não autorizado para não poluir a tela
+    if (errInfo.error.includes('auth/unauthorized-domain') || errInfo.error.includes('unauthorized-domain')) {
+      return errInfo;
+    }
+    
     if (errInfo.error.includes('permission-denied') || errInfo.error.includes('Missing or insufficient permissions')) {
       setToast({ 
         message: 'Erro de permissão: Certifique se está logado como admin e se o domínio do Netlify está autorizado no Firebase.', 
