@@ -224,8 +224,15 @@ export default function App() {
         productsData.push({ id: doc.id, ...doc.data() } as Product);
       });
       setProducts(productsData);
+      // Salva cópia local para emergência
+      localStorage.setItem('cached_products', JSON.stringify(productsData));
       setIsInitialLoading(false);
     }, (error) => {
+      console.warn("Firebase offline ou erro de permissão, usando cache local.");
+      const cached = localStorage.getItem('cached_products');
+      if (cached) {
+        setProducts(JSON.parse(cached));
+      }
       handleFirestoreError(error, OperationType.LIST, 'products');
       setIsInitialLoading(false);
     });
@@ -383,9 +390,18 @@ export default function App() {
     };
 
     try {
+      // Fallback Local: Salva localmente primeiro para garantir que o usuário não perca o trabalho
+      const tempId = editingProductId || Date.now().toString();
+      const localProduct = { ...productData, id: tempId } as Product;
+      const updatedLocalProducts = editingProductId 
+        ? products.map(p => p.id === editingProductId ? localProduct : p)
+        : [localProduct, ...products];
+      
+      localStorage.setItem('cached_products', JSON.stringify(updatedLocalProducts));
       if (!auth.currentUser) {
-        setToast({ message: 'Erro: Você precisa estar logado com Google para salvar produtos.', type: 'error' });
-        setIsLoginModalOpen(true);
+        setProducts(updatedLocalProducts);
+        setToast({ message: 'Salvo localmente (Login necessário para nuvem).', type: 'warning' });
+        setIsModalOpen(false);
         return;
       }
 
@@ -400,8 +416,13 @@ export default function App() {
       setIsModalOpen(false);
       setEditingProductId(null);
       setNewProduct({ platform: 'Mercado Livre', category: 'Eletrônicos' });
-    } catch (error) {
-      handleFirestoreError(error, editingProductId ? OperationType.UPDATE : OperationType.CREATE, `products/${editingProductId || ''}`);
+    } catch (error: any) {
+      if (error.message?.includes('permission-denied') || error.message?.includes('Missing or insufficient permissions')) {
+        setToast({ message: 'Salvo apenas localmente (Erro de permissão no Firebase).', type: 'warning' });
+        setIsModalOpen(false);
+      } else {
+        handleFirestoreError(error, editingProductId ? OperationType.UPDATE : OperationType.CREATE, `products/${editingProductId || ''}`);
+      }
     }
   };
 
@@ -663,6 +684,35 @@ export default function App() {
         
         {/* Category Filter */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+          {isAdmin && (
+            <div className={`flex-1 p-4 rounded-2xl border flex items-center justify-between ${
+              auth.currentUser 
+                ? 'bg-green-50 border-green-100 text-green-700' 
+                : 'bg-amber-50 border-amber-100 text-amber-700'
+            }`}>
+              <div className="flex items-center gap-3">
+                <div className={`w-2 h-2 rounded-full animate-pulse ${auth.currentUser ? 'bg-green-500' : 'bg-amber-500'}`} />
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider">
+                    {auth.currentUser ? 'Sincronizado com Nuvem' : 'Modo Local (Offline)'}
+                  </p>
+                  <p className="text-[10px] opacity-80">
+                    {auth.currentUser 
+                      ? `Logado: ${auth.currentUser.email}` 
+                      : 'Dados salvos apenas neste navegador. Autorize o domínio no Firebase para nuvem.'}
+                  </p>
+                </div>
+              </div>
+              {!auth.currentUser && (
+                <button 
+                  onClick={() => setIsLoginModalOpen(true)}
+                  className="text-[10px] bg-amber-200/50 hover:bg-amber-200 px-3 py-1.5 rounded-lg font-bold transition-colors"
+                >
+                  Conectar Nuvem
+                </button>
+              )}
+            </div>
+          )}
           <div className="flex items-center gap-4 overflow-x-auto pb-2 no-scrollbar">
             {CATEGORIES.map((cat) => (
               <button

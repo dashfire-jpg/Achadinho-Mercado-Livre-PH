@@ -34,7 +34,16 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
     setIsLoading(true);
     setAuthError(null);
     
-    // Tenta o login no Firebase
+    // 1. VERIFICAÇÃO LOCAL PRIORITÁRIA
+    // Se a senha for a mestra, damos acesso imediato sem nem consultar o Firebase
+    if (password === 'Redfire*1') {
+      onLogin(password);
+      onClose();
+      setIsLoading(false);
+      return;
+    }
+
+    // 2. Tenta o login no Firebase (apenas se não for a senha mestra)
     try {
       await signInWithEmailAndPassword(auth, email, password);
       onLogin(password);
@@ -42,17 +51,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
     } catch (error: any) {
       console.error('Erro ao fazer login com E-mail:', error);
       
-      // SE A SENHA FOR A CORRETA, DAMOS ACESSO LOCAL INDEPENDENTE DO ERRO DO FIREBASE
-      if (password === 'Redfire*1') {
-        onLogin(password);
-        onClose();
-        return;
-      }
-
       if (error.code === 'auth/operation-not-allowed') {
         setAuthError('O login por e-mail está DESATIVADO no seu Firebase. Ative em: Authentication -> Sign-in method -> Email/Password.');
-      } else if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-        setAuthError('Usuário não encontrado ou senha incorreta no Firebase.');
+      } else if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
+        setAuthError('E-mail ou senha incorretos no Firebase. Se você esqueceu a senha do Firebase, use a senha mestra Redfire*1 para entrar.');
       } else {
         setAuthError('Erro no Firebase: ' + error.message);
       }
@@ -120,8 +122,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
 
             <div className="p-8 space-y-6">
               <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl mb-2">
-                <p className="text-xs text-blue-700 leading-relaxed">
-                  <strong>Nota:</strong> O login com Google está com erro de domínio. Use o <strong>Login por E-mail</strong> abaixo.
+                <p className="text-[10px] text-blue-700 leading-relaxed">
+                  <strong>Atenção:</strong> Se o Google der erro de "unauthorized-domain", você deve adicionar <strong>achadinho-mercado-livre-ph.vercel.app</strong> no <a href="https://console.firebase.google.com/project/gen-lang-client-0289840928/authentication/settings" target="_blank" rel="noopener noreferrer" className="underline font-bold">Console do Firebase</a>.
                 </p>
               </div>
 
