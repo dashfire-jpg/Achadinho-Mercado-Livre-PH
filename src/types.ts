@@ -9,6 +9,9 @@ export interface Product {
   platform: 'Mercado Livre' | 'Shopee' | 'Amazon' | 'Outros';
   category: string;
   isHot?: boolean;
+  blockchainHash?: string;
+  createdAt?: any;
+  updatedAt?: any;
 }
 
 export type Category = 'Eletrônicos' | 'Casa' | 'Moda' | 'Beleza' | 'Games' | 'Todos';

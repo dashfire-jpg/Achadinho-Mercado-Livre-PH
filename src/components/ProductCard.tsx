@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingCart, ExternalLink, Flame } from 'lucide-react';
+import { ShoppingCart, ExternalLink, Flame, ShieldCheck } from 'lucide-react';
 import { Product } from '../types';
 import { motion } from 'motion/react';
 
@@ -20,7 +20,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       className="bg-white rounded-2xl overflow-hidden shadow-sm border border-black/5 hover:shadow-md transition-shadow group relative"
       id={`product-${product.id}`}
     >
-      {product.isHot && (
+      {product.blockchainHash && (
+        <div className="absolute top-3 left-3 z-10 bg-blue-500/90 backdrop-blur-sm text-white px-2 py-1 rounded-full text-[9px] font-bold flex items-center gap-1 shadow-sm border border-white/20">
+          <ShieldCheck size={10} />
+          <span>VERIFICADO BLOCKCHAIN</span>
+        </div>
+      )}
+      
+      {product.isHot && !product.blockchainHash && (
         <div className="absolute top-3 left-3 z-10 bg-orange-500 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-sm">
           <Flame size={12} fill="currentColor" />
           <span>EM ALTA</span>

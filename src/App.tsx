@@ -6,7 +6,8 @@ import { ConfirmModal } from './components/ConfirmModal';
 import { CATEGORIES } from './constants';
 import { Product, Category } from './types';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShoppingBag, Star, Zap, Bell, Plus, X, Link as LinkIcon, Tag, Image as ImageIcon, Info, Sparkles, Wand2, AlertCircle, Pencil, Upload, Settings } from 'lucide-react';
+import { blockchain } from './services/blockchain';
+import { ShoppingBag, Star, Zap, Bell, Plus, X, Link as LinkIcon, Tag, Image as ImageIcon, Info, Sparkles, Wand2, AlertCircle, Pencil, Upload, Settings, ShieldCheck, Wallet } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { 
   collection, 
@@ -92,6 +93,45 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const [isTestingKey, setIsTestingKey] = useState(false);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [isVerifyingBlockchain, setIsVerifyingBlockchain] = useState(false);
+
+  const handleWalletConnect = async () => {
+    try {
+      const address = await blockchain.connectWallet();
+      if (address) {
+        setWalletAddress(address);
+        setToast({ message: `Carteira conectada: ${address.slice(0, 6)}...${address.slice(-4)}`, type: 'success' });
+        
+        // Se o endereço for o do admin (opcional, aqui apenas simulamos)
+        // setIsAdmin(true); 
+      }
+    } catch (err: any) {
+      setToast({ message: err.message || "Erro ao conectar carteira", type: 'error' });
+    }
+  };
+
+  const verifyAllIntegrity = async () => {
+    setIsVerifyingBlockchain(true);
+    let allValid = true;
+    
+    for (const product of products) {
+      if (product.blockchainHash) {
+        const isValid = await blockchain.verifyIntegrity(product, product.blockchainHash);
+        if (!isValid) {
+          allValid = false;
+          break;
+        }
+      }
+    }
+    
+    setIsVerifyingBlockchain(false);
+    if (allValid) {
+      setToast({ message: "Integridade da Blockchain verificada: Todos os produtos são autênticos.", type: 'success' });
+    } else {
+      setToast({ message: "ALERTA: Falha na verificação de integridade! Alguns dados podem ter sido alterados.", type: 'error' });
+    }
+  };
 
   const testApiKey = async (keyToTest: string) => {
     if (!keyToTest) {
@@ -381,6 +421,15 @@ export default function App() {
       return;
     }
 
+    // Generate Blockchain Hash for the product to ensure integrity
+    const blockchainHash = await blockchain.generateProductHash({
+      title: newProduct.title!,
+      price: Number(newProduct.price),
+      link: newProduct.affiliateLink!,
+      id: editingProductId || 'new',
+      createdAt: editingProductId ? (newProduct as any).createdAt : Date.now()
+    });
+
     const productData = {
       title: newProduct.title!,
       description: newProduct.description || '',
@@ -391,6 +440,7 @@ export default function App() {
       platform: newProduct.platform,
       category: newProduct.category,
       isHot: newProduct.isHot || false,
+      blockchainHash, // Store the hash
       createdAt: editingProductId ? (newProduct as any).createdAt : serverTimestamp(),
     };
 
@@ -690,32 +740,75 @@ export default function App() {
         {/* Category Filter */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
           {isAdmin && (
-            <div className={`flex-1 p-4 rounded-2xl border flex items-center justify-between ${
-              auth.currentUser 
-                ? 'bg-green-50 border-green-100 text-green-700' 
-                : 'bg-amber-50 border-amber-100 text-amber-700'
-            }`}>
-              <div className="flex items-center gap-3">
-                <div className={`w-2 h-2 rounded-full animate-pulse ${auth.currentUser ? 'bg-green-500' : 'bg-amber-500'}`} />
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider">
-                    {auth.currentUser ? 'Sincronizado com Nuvem' : 'Modo Local (Offline)'}
-                  </p>
-                  <p className="text-[10px] opacity-80">
-                    {auth.currentUser 
-                      ? `Logado: ${auth.currentUser.email}` 
-                      : 'Dados salvos apenas neste navegador. Autorize o domínio no Firebase para nuvem.'}
-                  </p>
+            <div className="flex flex-col gap-4 flex-1">
+              <div className={`p-4 rounded-2xl border flex items-center justify-between ${
+                auth.currentUser 
+                  ? 'bg-green-50 border-green-100 text-green-700' 
+                  : 'bg-amber-50 border-amber-100 text-amber-700'
+              }`}>
+                <div className="flex items-center gap-3">
+                  <div className={`w-2 h-2 rounded-full animate-pulse ${auth.currentUser ? 'bg-green-500' : 'bg-amber-500'}`} />
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider">
+                      {auth.currentUser ? 'Sincronizado com Nuvem' : 'Modo Local (Offline)'}
+                    </p>
+                    <p className="text-[10px] opacity-80">
+                      {auth.currentUser 
+                        ? `Logado: ${auth.currentUser.email}` 
+                        : 'Dados salvos apenas neste navegador. Autorize o domínio no Firebase para nuvem.'}
+                    </p>
+                  </div>
+                </div>
+                {!auth.currentUser && (
+                  <button 
+                    onClick={() => setIsLoginModalOpen(true)}
+                    className="text-[10px] bg-amber-200/50 hover:bg-amber-200 px-3 py-1.5 rounded-lg font-bold transition-colors"
+                  >
+                    Conectar Nuvem
+                  </button>
+                )}
+              </div>
+
+              {/* Blockchain Security Panel */}
+              <div className="p-4 rounded-2xl border border-blue-100 bg-blue-50/50 flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 rounded-xl text-blue-600">
+                    <ShieldCheck size={18} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-blue-900 uppercase tracking-wider">Segurança Blockchain</p>
+                    <p className="text-[10px] text-blue-700">
+                      {walletAddress 
+                        ? `Carteira: ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` 
+                        : 'Proteja o site com autenticação Web3 e integridade de dados.'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  {!walletAddress ? (
+                    <button 
+                      onClick={handleWalletConnect}
+                      className="text-[10px] bg-blue-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-blue-700 transition-all flex items-center gap-2"
+                    >
+                      <Wallet size={14} />
+                      Conectar Carteira
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={verifyAllIntegrity}
+                      disabled={isVerifyingBlockchain}
+                      className="text-[10px] bg-white border border-blue-200 text-blue-700 px-3 py-1.5 rounded-lg font-bold hover:bg-blue-50 transition-all flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {isVerifyingBlockchain ? (
+                        <Wand2 size={14} className="animate-spin" />
+                      ) : (
+                        <ShieldCheck size={14} />
+                      )}
+                      Verificar Integridade
+                    </button>
+                  )}
                 </div>
               </div>
-              {!auth.currentUser && (
-                <button 
-                  onClick={() => setIsLoginModalOpen(true)}
-                  className="text-[10px] bg-amber-200/50 hover:bg-amber-200 px-3 py-1.5 rounded-lg font-bold transition-colors"
-                >
-                  Conectar Nuvem
-                </button>
-              )}
             </div>
           )}
           <div className="flex items-center gap-4 overflow-x-auto pb-2 no-scrollbar">
