@@ -14,15 +14,46 @@
         "platform": { "type": "string", "description": "Platform (e.g., Mercado Livre, Shopee)" },
         "category": { "type": "string", "description": "Product category" },
         "isHot": { "type": "boolean", "description": "Whether the product is a hot deal" },
+        "clickCount": { "type": "integer", "description": "Number of times the product was clicked" },
         "createdAt": { "type": "string", "format": "date-time", "description": "When the product was added" }
       },
       "required": ["title", "price", "imageUrl", "affiliateLink", "platform", "createdAt"]
+    },
+    "Visit": {
+      "title": "Visit",
+      "description": "A site visit record",
+      "type": "object",
+      "properties": {
+        "timestamp": { "type": "string", "format": "date-time", "description": "When the visit occurred" },
+        "userAgent": { "type": "string", "description": "Browser user agent" }
+      },
+      "required": ["timestamp"]
+    },
+    "Click": {
+      "title": "Click",
+      "description": "A click on an affiliate link",
+      "type": "object",
+      "properties": {
+        "productId": { "type": "string", "description": "ID of the clicked product" },
+        "productTitle": { "type": "string", "description": "Title of the clicked product" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "When the click occurred" },
+        "platform": { "type": "string", "description": "Platform of the product" }
+      },
+      "required": ["productId", "timestamp"]
     }
   },
   "firestore": {
     "products": {
       "schema": "Product",
       "description": "Collection of product offers"
+    },
+    "visits": {
+      "schema": "Visit",
+      "description": "Collection of site visits"
+    },
+    "clicks": {
+      "schema": "Click",
+      "description": "Collection of affiliate link clicks"
     }
   }
 }

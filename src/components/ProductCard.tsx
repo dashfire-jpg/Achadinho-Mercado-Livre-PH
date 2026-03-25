@@ -2,6 +2,8 @@ import React from 'react';
 import { ShoppingCart, ExternalLink, Flame, ShieldCheck } from 'lucide-react';
 import { Product } from '../types';
 import { motion } from 'motion/react';
+import { addDoc, collection, serverTimestamp, updateDoc, doc, increment } from 'firebase/firestore';
+import { db } from '../firebase';
 
 interface ProductCardProps {
   product: Product;
@@ -11,6 +13,26 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const discount = product.originalPrice 
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100) 
     : 0;
+
+  const handleLinkClick = async () => {
+    try {
+      // Record the click in the clicks collection for stats
+      await addDoc(collection(db, 'clicks'), {
+        productId: product.id,
+        productTitle: product.title,
+        platform: product.platform,
+        timestamp: serverTimestamp()
+      });
+
+      // Increment the product's individual clickCount for sorting
+      const productRef = doc(db, 'products', product.id);
+      await updateDoc(productRef, {
+        clickCount: increment(1)
+      });
+    } catch (error) {
+      console.error("Erro ao registrar clique:", error);
+    }
+  };
 
   return (
     <motion.div 
@@ -84,6 +106,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             href={product.affiliateLink}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={handleLinkClick}
             className="w-full bg-black text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors active:scale-95"
           >
             <ShoppingCart size={18} />

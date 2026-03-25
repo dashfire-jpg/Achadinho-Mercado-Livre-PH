@@ -35,9 +35,10 @@ service cloud.firestore {
     }
 
     function isValidProduct(data) {
-      return data.keys().hasAll(['title', 'price', 'imageUrl', 'affiliateLink', 'platform', 'category', 'createdAt']) &&
+      return data.keys().hasAll(['title', 'price', 'imageUrl', 'affiliateLink', 'platform', 'category', 'createdAt', 'clickCount']) &&
              data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
              data.price is number && data.price >= 0 &&
+             data.clickCount is int && data.clickCount >= 0 &&
              data.imageUrl is string && data.imageUrl.size() < 2000 &&
              data.affiliateLink is string && data.affiliateLink.size() < 2000 &&
              data.platform is string &&
@@ -48,10 +49,28 @@ service cloud.firestore {
       // Anyone can read products
       allow read: if true;
       
-      // Only admin can create, update, or delete
+      // Anyone can increment clickCount
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clickCount']) &&
+                    request.resource.data.clickCount == resource.data.clickCount + 1;
+
+      // Only admin can create, update (other fields), or delete
       allow create: if isAdmin() && isValidProduct(request.resource.data);
       allow update: if isAdmin() && isValidProduct(request.resource.data);
       allow delete: if isAdmin();
+    }
+
+    match /visits/{visitId} {
+      // Anyone can record a visit
+      allow create: if true;
+      // Only admin can read visits
+      allow read: if isAdmin();
+    }
+
+    match /clicks/{clickId} {
+      // Anyone can record a click
+      allow create: if true;
+      // Only admin can read clicks
+      allow read: if isAdmin();
     }
     
     // Test connection path

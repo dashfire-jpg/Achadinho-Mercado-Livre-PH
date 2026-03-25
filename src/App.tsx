@@ -1,13 +1,14 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
 import { ProductCard } from './components/ProductCard';
+import { StatsDashboard } from './components/StatsDashboard';
 import { LoginModal } from './components/LoginModal';
 import { ConfirmModal } from './components/ConfirmModal';
 import { CATEGORIES } from './constants';
 import { Product, Category } from './types';
 import { motion, AnimatePresence } from 'motion/react';
 import { blockchain } from './services/blockchain';
-import { ShoppingBag, Star, Zap, Bell, Plus, X, Link as LinkIcon, Tag, Image as ImageIcon, Info, Sparkles, Wand2, AlertCircle, Pencil, Upload, Settings, ShieldCheck, Wallet } from 'lucide-react';
+import { ShoppingBag, Star, Zap, Bell, Plus, X, Link as LinkIcon, Tag, Image as ImageIcon, Info, Sparkles, Wand2, AlertCircle, Pencil, Upload, Settings, ShieldCheck, Wallet, BarChart3 } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { 
   collection, 
@@ -77,7 +78,8 @@ export default function App() {
   // Form State
   const [newProduct, setNewProduct] = useState<Partial<Product>>({
     platform: 'Mercado Livre',
-    category: 'Eletrônicos'
+    category: 'Eletrônicos',
+    clickCount: 0
   });
 
   const [isAuthReady, setIsAuthReady] = useState(false);
@@ -95,6 +97,22 @@ export default function App() {
   const [isTestingKey, setIsTestingKey] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [isVerifyingBlockchain, setIsVerifyingBlockchain] = useState(false);
+  const [isStatsOpen, setIsStatsOpen] = useState(false);
+
+  // Record visit on load
+  useEffect(() => {
+    const recordVisit = async () => {
+      try {
+        await addDoc(collection(db, 'visits'), {
+          timestamp: serverTimestamp(),
+          userAgent: navigator.userAgent
+        });
+      } catch (error) {
+        console.error("Erro ao registrar visita:", error);
+      }
+    };
+    recordVisit();
+  }, []);
 
   const handleWalletConnect = async () => {
     try {
@@ -262,7 +280,7 @@ export default function App() {
         });
     }
 
-    const q = query(collection(db, 'products'), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'products'), orderBy('clickCount', 'desc'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const productsData: Product[] = [];
       snapshot.forEach((doc) => {
@@ -273,17 +291,60 @@ export default function App() {
       localStorage.setItem('cached_products', JSON.stringify(productsData));
       setIsInitialLoading(false);
     }, (error) => {
-      console.warn("Firebase offline ou erro de permissão, usando cache local.");
-      const cached = localStorage.getItem('cached_products');
-      if (cached) {
-        setProducts(JSON.parse(cached));
-      }
-      handleFirestoreError(error, OperationType.LIST, 'products');
-      setIsInitialLoading(false);
+      console.warn("Firebase offline ou erro de permissão/índice, tentando sem ordenação.");
+      // Fallback: Tenta buscar sem ordenação se falhar (ex: índice faltando)
+      const fallbackQ = query(collection(db, 'products'));
+      onSnapshot(fallbackQ, (snapshot) => {
+        const productsData: Product[] = [];
+        snapshot.forEach((doc) => {
+          productsData.push({ id: doc.id, ...doc.data() } as Product);
+        });
+        // Sort in memory as fallback
+        const sortedData = [...productsData].sort((a, b) => {
+          const clicksA = a.clickCount || 0;
+          const clicksB = b.clickCount || 0;
+          if (clicksA !== clicksB) return clicksB - clicksA;
+          return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
+        });
+        setProducts(sortedData);
+        setIsInitialLoading(false);
+      }, (fallbackError) => {
+        console.error("Erro fatal no Firestore:", fallbackError);
+        const cached = localStorage.getItem('cached_products');
+        if (cached) {
+          setProducts(JSON.parse(cached));
+        }
+        handleFirestoreError(fallbackError, OperationType.LIST, 'products');
+        setIsInitialLoading(false);
+      });
     });
 
     return () => unsubscribe();
   }, []);
+
+  // Migration: Ensure all products have a clickCount
+  useEffect(() => {
+    if (isAdmin && products.length > 0) {
+      const updateMissingClickCounts = async () => {
+        const batch: Promise<void>[] = [];
+        products.forEach(product => {
+          if (product.clickCount === undefined) {
+            const productRef = doc(db, 'products', product.id);
+            batch.push(updateDoc(productRef, { clickCount: 0 }));
+          }
+        });
+        if (batch.length > 0) {
+          try {
+            await Promise.all(batch);
+            setToast({ message: `${batch.length} produtos atualizados com contador de cliques.`, type: 'success' });
+          } catch (error) {
+            console.error("Erro ao migrar contadores de cliques:", error);
+          }
+        }
+      };
+      updateMissingClickCounts();
+    }
+  }, [isAdmin, products.length]);
 
   useEffect(() => {
     if (toast) {
@@ -672,6 +733,11 @@ export default function App() {
         </div>
       )}
 
+      <StatsDashboard 
+        isOpen={isStatsOpen} 
+        onClose={() => setIsStatsOpen(false)} 
+      />
+
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-white pt-16 pb-24 border-b border-black/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -807,6 +873,13 @@ export default function App() {
                       Verificar Integridade
                     </button>
                   )}
+                  <button 
+                    onClick={() => setIsStatsOpen(true)}
+                    className="text-[10px] bg-orange-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-orange-700 transition-all flex items-center gap-2"
+                  >
+                    <BarChart3 size={14} />
+                    Estatísticas
+                  </button>
                 </div>
               </div>
             </div>

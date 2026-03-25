@@ -10,6 +10,7 @@ export interface Product {
   category: string;
   isHot?: boolean;
   blockchainHash?: string;
+  clickCount?: number;
   createdAt?: any;
   updatedAt?: any;
 }
