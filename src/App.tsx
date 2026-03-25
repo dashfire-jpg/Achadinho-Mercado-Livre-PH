@@ -850,7 +850,7 @@ export default function App() {
       {/* Advertisement Banner */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 relative z-10">
         <a 
-          href="https://www.profitablecpmratenetwork.com/dpghwkn2pr?key=232444a77f40ad24d63679731fc6f5bc" 
+          href="https://www.profitablecpmratenetwork.com/ubb8kaqc?key=250d1b5c95fb900a79457bf9fc040348" 
           target="_blank" 
           rel="noopener noreferrer"
           className="block group"
@@ -1270,7 +1270,7 @@ export default function App() {
               <ul className="space-y-4 text-sm text-gray-500">
                 <li>
                   <a 
-                    href="https://www.profitablecpmratenetwork.com/dpghwkn2pr?key=232444a77f40ad24d63679731fc6f5bc" 
+                    href="https://www.profitablecpmratenetwork.com/ubb8kaqc?key=250d1b5c95fb900a79457bf9fc040348" 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="hover:text-orange-500 transition-colors flex items-center gap-2"
