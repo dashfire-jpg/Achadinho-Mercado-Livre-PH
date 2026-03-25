@@ -25,6 +25,7 @@ import {
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from './firebase';
+import firebaseConfig from '../firebase-applet-config.json';
 
 enum OperationType {
   CREATE = 'create',
@@ -103,13 +104,25 @@ export default function App() {
   // Record visit on load
   useEffect(() => {
     const recordVisit = async () => {
+      // Check if config is valid
+      if (firebaseConfig.apiKey === 'TODO_KEYHERE' || !firebaseConfig.apiKey) {
+        setToast({ message: "Firebase não configurado. Clique na engrenagem para ver o status.", type: 'error' });
+        return;
+      }
+
       try {
+        // Test connection first
+        await getDocFromServer(doc(db, 'test', 'connection'));
+        
         await addDoc(collection(db, 'visits'), {
           timestamp: serverTimestamp(),
           userAgent: navigator.userAgent
         });
-      } catch (error) {
-        console.error("Erro ao registrar visita:", error);
+      } catch (error: any) {
+        console.error("Erro ao registrar visita ou testar conexão:", error);
+        if (error.message?.includes('the client is offline')) {
+          setToast({ message: "Firebase Offline: Verifique sua configuração ou conexão.", type: 'error' });
+        }
       }
     };
     recordVisit();
@@ -209,12 +222,16 @@ export default function App() {
     
     // Silenciar erros de domínio não autorizado para não poluir a tela
     if (errInfo.error.includes('auth/unauthorized-domain') || errInfo.error.includes('unauthorized-domain')) {
+      setToast({ 
+        message: 'Domínio não autorizado: Adicione ' + window.location.hostname + ' no painel do Firebase (Authentication > Settings > Authorized Domains).', 
+        type: 'error' 
+      });
       return errInfo;
     }
     
     if (errInfo.error.includes('permission-denied') || errInfo.error.includes('Missing or insufficient permissions')) {
       setToast({ 
-        message: 'Erro de permissão: Certifique se está logado como admin e se o domínio do Netlify está autorizado no Firebase.', 
+        message: 'Erro de permissão: Certifique se está logado como admin (dashfire@gmail.com) e se o domínio está autorizado no Firebase.', 
         type: 'error' 
       });
     } else {
@@ -520,7 +537,10 @@ export default function App() {
       localStorage.setItem('cached_products', JSON.stringify(updatedLocalProducts));
       if (!auth.currentUser) {
         setProducts(updatedLocalProducts);
-        setToast({ message: 'Salvo localmente (Login necessário para nuvem).', type: 'warning' });
+        setToast({ 
+          message: 'Salvo localmente. Para salvar na nuvem, você deve entrar com Google (ícone de perfil).', 
+          type: 'warning' 
+        });
         setIsModalOpen(false);
         return;
       }
@@ -724,6 +744,26 @@ export default function App() {
                 <p className="text-xs text-orange-700 leading-relaxed">
                   <strong>Dica Netlify:</strong> Se as postagens falharem, lembre-se de adicionar o domínio do seu site no painel do Firebase (Authentication {'>'} Settings {'>'} Authorized Domains).
                 </p>
+              </div>
+
+              <div className="p-4 bg-gray-50 border border-gray-200 rounded-2xl space-y-2">
+                <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Status Firebase</h3>
+                <div className="flex items-center justify-between text-[10px]">
+                  <span className="text-gray-500">Configuração:</span>
+                  <span className={firebaseConfig.apiKey !== 'TODO_KEYHERE' ? 'text-green-600 font-bold' : 'text-red-600 font-bold'}>
+                    {firebaseConfig.apiKey !== 'TODO_KEYHERE' ? 'Válida' : 'Pendente'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-[10px]">
+                  <span className="text-gray-500">Usuário Logado:</span>
+                  <span className={auth.currentUser ? 'text-green-600 font-bold' : 'text-amber-600 font-bold'}>
+                    {auth.currentUser ? auth.currentUser.email : 'Nenhum'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-[10px]">
+                  <span className="text-gray-500">Domínio Atual:</span>
+                  <span className="text-gray-900">{window.location.hostname}</span>
+                </div>
               </div>
             </div>
 

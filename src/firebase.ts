@@ -6,13 +6,17 @@ import firebaseConfig from '../firebase-applet-config.json';
 // Validate config
 const isValidConfig = firebaseConfig && firebaseConfig.apiKey && firebaseConfig.apiKey !== 'TODO_KEYHERE';
 
+if (!isValidConfig) {
+  console.error("Firebase config is missing or invalid. Please check firebase-applet-config.json");
+}
+
 const app = initializeApp(isValidConfig ? firebaseConfig : {
-  apiKey: "invalid",
-  authDomain: "invalid",
-  projectId: "invalid",
-  storageBucket: "invalid",
-  messagingSenderId: "invalid",
-  appId: "invalid"
+  apiKey: "invalid-key-placeholder",
+  authDomain: "invalid.firebaseapp.com",
+  projectId: "invalid-project",
+  storageBucket: "invalid.appspot.com",
+  messagingSenderId: "000000000000",
+  appId: "1:000000000000:web:0000000000000000000000"
 });
 
 export const auth = getAuth(app);
@@ -22,4 +26,5 @@ if (isValidConfig) {
   setPersistence(auth, browserLocalPersistence).catch(err => console.error("Erro ao definir persistência:", err));
 }
 
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+// Use the database ID from config if available, otherwise default
+export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || '(default)');
