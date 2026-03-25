@@ -31,7 +31,8 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() &&
-        (request.auth.token.email == "dashfire@gmail.com");
+        request.auth.token.email == "dashfire@gmail.com" &&
+        request.auth.token.email_verified == true;
     }
 
     function isValidProduct(data) {

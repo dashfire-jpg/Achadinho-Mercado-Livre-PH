@@ -17,6 +17,7 @@ import {
   deleteDoc, 
   doc, 
   updateDoc, 
+  setDoc,
   query, 
   orderBy, 
   serverTimestamp,
@@ -482,12 +483,15 @@ export default function App() {
       return;
     }
 
-    // Generate Blockchain Hash for the product to ensure integrity
+    // 1. Get or Generate ID first to ensure blockchain hash consistency
+    const productId = editingProductId || doc(collection(db, 'products')).id;
+
+    // 2. Generate Blockchain Hash for the product to ensure integrity
     const blockchainHash = await blockchain.generateProductHash({
       title: newProduct.title!,
       price: Number(newProduct.price),
       link: newProduct.affiliateLink!,
-      id: editingProductId || 'new',
+      id: productId,
       createdAt: editingProductId ? (newProduct as any).createdAt : Date.now()
     });
 
@@ -501,14 +505,14 @@ export default function App() {
       platform: newProduct.platform,
       category: newProduct.category,
       isHot: newProduct.isHot || false,
+      clickCount: editingProductId ? (newProduct.clickCount || 0) : 0,
       blockchainHash, // Store the hash
       createdAt: editingProductId ? (newProduct as any).createdAt : serverTimestamp(),
     };
 
     try {
       // Fallback Local: Salva localmente primeiro para garantir que o usuário não perca o trabalho
-      const tempId = editingProductId || Date.now().toString();
-      const localProduct = { ...productData, id: tempId } as Product;
+      const localProduct = { ...productData, id: productId } as Product;
       const updatedLocalProducts = editingProductId 
         ? products.map(p => p.id === editingProductId ? localProduct : p)
         : [localProduct, ...products];
@@ -525,7 +529,7 @@ export default function App() {
         await updateDoc(doc(db, 'products', editingProductId), productData);
         setToast({ message: 'Produto atualizado com sucesso!', type: 'success' });
       } else {
-        await addDoc(collection(db, 'products'), productData);
+        await setDoc(doc(db, 'products', productId), productData);
         setToast({ message: 'Produto cadastrado com sucesso!', type: 'success' });
       }
       
@@ -724,7 +728,10 @@ export default function App() {
             </div>
 
             <button
-              onClick={() => setIsSettingsOpen(false)}
+              onClick={() => {
+                setIsSettingsOpen(false);
+                setToast({ message: 'Configurações salvas com sucesso!', type: 'success' });
+              }}
               className="w-full mt-8 bg-black hover:bg-gray-800 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-black/10"
             >
               Salvar e Fechar

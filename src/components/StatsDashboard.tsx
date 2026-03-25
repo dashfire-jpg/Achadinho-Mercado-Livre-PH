@@ -7,9 +7,9 @@ import {
   Timestamp,
   where
 } from 'firebase/firestore';
-import { db } from '../firebase';
+import { auth, db } from '../firebase';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, BarChart3, MousePointer2, Users, Calendar, ArrowUpRight, TrendingUp } from 'lucide-react';
+import { X, BarChart3, MousePointer2, Users, Calendar, ArrowUpRight, TrendingUp, AlertCircle, ShieldCheck } from 'lucide-react';
 import { format, startOfDay, endOfDay, subDays, isSameDay, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { 
@@ -48,6 +48,7 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({ isOpen, onClose 
   const [visits, setVisits] = useState<Visit[]>([]);
   const [clicks, setClicks] = useState<Click[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<number>(7); // Default to last 7 days
 
   useEffect(() => {
@@ -57,7 +58,20 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({ isOpen, onClose 
   }, [isOpen, period]);
 
   const fetchStats = async () => {
+    if (!auth.currentUser) {
+      setIsLoading(false);
+      setError("Acesso negado. Você precisa estar logado com sua conta Google para ver as estatísticas da nuvem.");
+      return;
+    }
+
+    if (auth.currentUser.email !== 'dashfire@gmail.com') {
+      setIsLoading(false);
+      setError("Acesso restrito. Apenas o administrador principal pode visualizar as estatísticas.");
+      return;
+    }
+
     setIsLoading(true);
+    setError(null);
     try {
       const startDate = subDays(new Date(), period);
       const startTimestamp = Timestamp.fromDate(startOfDay(startDate));
@@ -68,11 +82,22 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({ isOpen, onClose 
         where('timestamp', '>=', startTimestamp),
         orderBy('timestamp', 'desc')
       );
-      const visitsSnapshot = await getDocs(visitsQuery);
-      const visitsData = visitsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Visit[];
+      
+      let visitsData: Visit[] = [];
+      try {
+        const visitsSnapshot = await getDocs(visitsQuery);
+        visitsData = visitsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Visit[];
+      } catch (err: any) {
+        console.error("Erro ao buscar visitas:", err);
+        if (err.message?.includes('permission-denied')) {
+          setError("Acesso negado. Você precisa estar logado com a conta Google master (dashfire@gmail.com) para ver as estatísticas da nuvem.");
+        } else {
+          setError("Erro ao carregar dados de visitas. Verifique sua conexão.");
+        }
+      }
       setVisits(visitsData);
 
       // Fetch Clicks
@@ -81,15 +106,28 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({ isOpen, onClose 
         where('timestamp', '>=', startTimestamp),
         orderBy('timestamp', 'desc')
       );
-      const clicksSnapshot = await getDocs(clicksQuery);
-      const clicksData = clicksSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Click[];
+      
+      let clicksData: Click[] = [];
+      try {
+        const clicksSnapshot = await getDocs(clicksQuery);
+        clicksData = clicksSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Click[];
+      } catch (err: any) {
+        console.error("Erro ao buscar cliques:", err);
+        // Don't overwrite visits error if already set
+        if (!error) {
+          if (err.message?.includes('permission-denied')) {
+            setError("Acesso negado às estatísticas de cliques.");
+          }
+        }
+      }
       setClicks(clicksData);
 
     } catch (error) {
-      console.error("Erro ao buscar estatísticas:", error);
+      console.error("Erro geral ao buscar estatísticas:", error);
+      setError("Ocorreu um erro inesperado ao carregar as estatísticas.");
     } finally {
       setIsLoading(false);
     }
@@ -173,6 +211,20 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({ isOpen, onClose 
               <div className="h-full flex flex-col items-center justify-center gap-4">
                 <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
                 <p className="text-sm text-gray-500 font-medium">Carregando dados...</p>
+              </div>
+            ) : error ? (
+              <div className="h-full flex flex-col items-center justify-center gap-6 text-center max-w-md mx-auto">
+                <div className="p-4 bg-red-50 text-red-600 rounded-2xl">
+                  <AlertCircle size={40} className="mx-auto mb-4" />
+                  <h3 className="text-lg font-bold mb-2">Ops! Algo deu errado</h3>
+                  <p className="text-sm opacity-90">{error}</p>
+                </div>
+                <button 
+                  onClick={fetchStats}
+                  className="px-6 py-3 bg-orange-500 text-white rounded-xl font-bold hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20"
+                >
+                  Tentar Novamente
+                </button>
               </div>
             ) : (
               <>
