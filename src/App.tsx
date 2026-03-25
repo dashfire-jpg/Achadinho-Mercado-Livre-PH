@@ -8,7 +8,7 @@ import { CATEGORIES } from './constants';
 import { Product, Category } from './types';
 import { motion, AnimatePresence } from 'motion/react';
 import { blockchain } from './services/blockchain';
-import { ShoppingBag, Star, Zap, Bell, Plus, X, Link as LinkIcon, Tag, Image as ImageIcon, Info, Sparkles, Wand2, AlertCircle, Pencil, Upload, Settings, ShieldCheck, Wallet, BarChart3 } from 'lucide-react';
+import { ShoppingBag, Star, Zap, Bell, Plus, X, Link as LinkIcon, Tag, Image as ImageIcon, Info, Sparkles, Wand2, AlertCircle, Pencil, Upload, Settings, ShieldCheck, Wallet, BarChart3, ArrowUpRight } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { 
   collection, 
@@ -847,6 +847,43 @@ export default function App() {
         <div className="absolute bottom-0 left-0 translate-y-1/4 -translate-x-1/4 w-[400px] h-[400px] bg-blue-50 rounded-full blur-3xl opacity-50 -z-0" />
       </section>
 
+      {/* Advertisement Banner */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 relative z-10">
+        <a 
+          href="https://www.profitablecpmratenetwork.com/dpghwkn2pr?key=232444a77f40ad24d63679731fc6f5bc" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="block group"
+        >
+          <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-3xl p-1 shadow-xl shadow-orange-200/50 transition-transform hover:scale-[1.01] active:scale-[0.99]">
+            <div className="bg-white/10 backdrop-blur-md rounded-[22px] px-6 py-8 flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden relative">
+              <div className="absolute top-4 right-6 z-20">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-white/40 border border-white/20 px-2 py-1 rounded-md">Patrocinado</span>
+              </div>
+              <div className="flex items-center gap-6 relative z-10">
+                <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-lg text-orange-600 shrink-0">
+                  <Sparkles size={32} />
+                </div>
+                <div>
+                  <h3 className="text-xl md:text-2xl font-bold text-white mb-1">Oferta Especial do Dia!</h3>
+                  <p className="text-orange-50 text-sm md:text-base opacity-90">Confira esta oportunidade imperdível que selecionamos para você hoje.</p>
+                </div>
+              </div>
+              <div className="relative z-10">
+                <span className="px-8 py-4 bg-white text-orange-600 rounded-2xl font-bold text-lg shadow-lg group-hover:bg-orange-50 transition-colors flex items-center gap-2">
+                  Ver Oferta Agora
+                  <ArrowUpRight size={20} />
+                </span>
+              </div>
+              
+              {/* Decorative background elements for the ad */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/5 rounded-full translate-y-1/2 -translate-x-1/2 blur-xl" />
+            </div>
+          </div>
+        </a>
+      </section>
+
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         
@@ -1225,6 +1262,23 @@ export default function App() {
                 <li><a href="#" className="hover:text-black transition-colors">Termos de Uso</a></li>
                 <li><a href="#" className="hover:text-black transition-colors">Privacidade</a></li>
                 <li><a href="#" className="hover:text-black transition-colors">Contato</a></li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="font-bold text-gray-900 mb-6">Parceiros</h4>
+              <ul className="space-y-4 text-sm text-gray-500">
+                <li>
+                  <a 
+                    href="https://www.profitablecpmratenetwork.com/dpghwkn2pr?key=232444a77f40ad24d63679731fc6f5bc" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="hover:text-orange-500 transition-colors flex items-center gap-2"
+                  >
+                    Oferta Especial
+                    <ArrowUpRight size={14} />
+                  </a>
+                </li>
               </ul>
             </div>
           </div>
