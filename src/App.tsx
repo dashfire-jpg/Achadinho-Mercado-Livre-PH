@@ -197,11 +197,11 @@ export default function App() {
         }
       };
 
-      const model = await callWithRetry(() => ai.models.get({ model: "gemini-3.1-pro-preview" }));
+      const model = await callWithRetry(() => ai.models.get({ model: "gemini-1.5-flash-latest" }));
       
       // Try a very simple generation to be sure
       const result = await callWithRetry(() => ai.models.generateContent({
-        model: "gemini-3.1-pro-preview",
+        model: "gemini-1.5-flash-latest",
         contents: "Oi",
         config: { maxOutputTokens: 1 }
       }));
@@ -481,7 +481,7 @@ export default function App() {
           };
 
           const response = await callWithRetry(() => ai.models.generateContent({
-            model: "gemini-3.1-pro-preview",
+            model: "gemini-1.5-flash-latest",
             contents: prompt,
             config: {
               tools: tools as any
