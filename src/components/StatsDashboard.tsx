@@ -268,8 +268,8 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({ isOpen, onClose 
                       <Calendar size={16} className="text-orange-500" />
                       Acessos por Dia
                     </h3>
-                    <div className="h-[300px] w-full">
-                      <ResponsiveContainer width="100%" height="100%">
+                    <div className="h-[300px] w-full min-h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                         <LineChart data={getDailyData()}>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                           <XAxis 
@@ -313,8 +313,8 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({ isOpen, onClose 
                       <ArrowUpRight size={16} className="text-orange-500" />
                       Top 5 Produtos Clicados
                     </h3>
-                    <div className="h-[300px] w-full">
-                      <ResponsiveContainer width="100%" height="100%">
+                    <div className="h-[300px] w-full min-h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                         <BarChart data={getProductClicks()} layout="vertical">
                           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
                           <XAxis type="number" hide />

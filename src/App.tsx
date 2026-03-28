@@ -174,12 +174,12 @@ export default function App() {
     setIsTestingKey(true);
     try {
       const ai = new GoogleGenAI({ apiKey: keyToTest });
-      const model = ai.models.get({ model: "gemini-1.5-flash" });
+      const model = ai.models.get({ model: "gemini-3-flash-preview" });
       await model; // Just checking if we can get the model info
       
       // Try a very simple generation to be sure
       const result = await ai.models.generateContent({
-        model: "gemini-1.5-flash",
+        model: "gemini-3-flash-preview",
         contents: "Oi",
         config: { maxOutputTokens: 1 }
       });
