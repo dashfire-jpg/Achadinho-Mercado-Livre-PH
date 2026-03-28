@@ -176,13 +176,20 @@ export default function App() {
       const ai = new GoogleGenAI({ apiKey: keyToTest });
       
       // Helper for retry
-      const callWithRetry = async (fn: () => Promise<any>, retries = 2) => {
+      const callWithRetry = async (fn: () => Promise<any>, retries = 3) => {
         for (let i = 0; i <= retries; i++) {
           try {
             return await fn();
           } catch (err: any) {
-            if (i < retries && err.message?.includes('503')) {
-              await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+            const errStr = err.message || JSON.stringify(err);
+            const isRetryable = errStr.includes('503') || 
+                               errStr.includes('UNAVAILABLE') || 
+                               errStr.includes('high demand') ||
+                               errStr.includes('temporary');
+            
+            if (i < retries && isRetryable) {
+              // Exponential backoff: 1s, 2s, 4s
+              await new Promise(r => setTimeout(r, Math.pow(2, i) * 1000));
               continue;
             }
             throw err;
@@ -190,11 +197,11 @@ export default function App() {
         }
       };
 
-      const model = await callWithRetry(() => ai.models.get({ model: "gemini-flash-latest" }));
+      const model = await callWithRetry(() => ai.models.get({ model: "gemini-3.1-pro-preview" }));
       
       // Try a very simple generation to be sure
       const result = await callWithRetry(() => ai.models.generateContent({
-        model: "gemini-flash-latest",
+        model: "gemini-3.1-pro-preview",
         contents: "Oi",
         config: { maxOutputTokens: 1 }
       }));
@@ -207,6 +214,9 @@ export default function App() {
       let msg = "Chave inválida ou erro de conexão.";
       if (err.message?.includes('API key not valid')) msg = "Chave API inválida. Verifique se copiou corretamente.";
       else if (err.message?.includes('Quota exceeded')) msg = "Limite de cota atingido para esta chave.";
+      else if (JSON.stringify(err).includes('503') || JSON.stringify(err).includes('UNAVAILABLE') || JSON.stringify(err).includes('high demand')) {
+        msg = "Os servidores da IA estão com alta demanda. A chave parece correta, mas tente testar novamente em alguns segundos.";
+      }
       
       setToast({ message: msg, type: 'error' });
     } finally {
@@ -449,13 +459,20 @@ export default function App() {
             3. A descrição deve ser curta e atrativa.`;
 
           // Helper for retry
-          const callWithRetry = async (fn: () => Promise<any>, retries = 2) => {
+          const callWithRetry = async (fn: () => Promise<any>, retries = 3) => {
             for (let i = 0; i <= retries; i++) {
               try {
                 return await fn();
               } catch (err: any) {
-                if (i < retries && err.message?.includes('503')) {
-                  await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+                const errStr = err.message || JSON.stringify(err);
+                const isRetryable = errStr.includes('503') || 
+                                   errStr.includes('UNAVAILABLE') || 
+                                   errStr.includes('high demand') ||
+                                   errStr.includes('temporary');
+                
+                if (i < retries && isRetryable) {
+                  // Exponential backoff: 1s, 2s, 4s
+                  await new Promise(r => setTimeout(r, Math.pow(2, i) * 1000));
                   continue;
                 }
                 throw err;
@@ -464,7 +481,7 @@ export default function App() {
           };
 
           const response = await callWithRetry(() => ai.models.generateContent({
-            model: "gemini-flash-latest",
+            model: "gemini-3.1-pro-preview",
             contents: prompt,
             config: {
               tools: tools as any
@@ -511,6 +528,8 @@ export default function App() {
             setIsSettingsOpen(true);
           } else if (aiError.message?.includes('Quota exceeded')) {
             errorMsg = "Limite da IA atingido. Tente novamente mais tarde.";
+          } else if (errorStr.includes('503') || errorStr.includes('UNAVAILABLE') || errorStr.includes('high demand')) {
+            errorMsg = "A IA está com alta demanda no momento. Tentamos reconectar, mas os servidores do Google ainda estão ocupados. Tente novamente em alguns instantes.";
           }
           
           setToast({ message: errorMsg, type: 'error' });
