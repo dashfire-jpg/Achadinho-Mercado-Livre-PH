@@ -174,15 +174,30 @@ export default function App() {
     setIsTestingKey(true);
     try {
       const ai = new GoogleGenAI({ apiKey: keyToTest });
-      const model = ai.models.get({ model: "gemini-3-flash-preview" });
-      await model; // Just checking if we can get the model info
+      
+      // Helper for retry
+      const callWithRetry = async (fn: () => Promise<any>, retries = 2) => {
+        for (let i = 0; i <= retries; i++) {
+          try {
+            return await fn();
+          } catch (err: any) {
+            if (i < retries && err.message?.includes('503')) {
+              await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+              continue;
+            }
+            throw err;
+          }
+        }
+      };
+
+      const model = await callWithRetry(() => ai.models.get({ model: "gemini-flash-latest" }));
       
       // Try a very simple generation to be sure
-      const result = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+      const result = await callWithRetry(() => ai.models.generateContent({
+        model: "gemini-flash-latest",
         contents: "Oi",
         config: { maxOutputTokens: 1 }
-      });
+      }));
       
       if (result.text) {
         setToast({ message: "Chave válida! Conexão estabelecida com sucesso.", type: 'success' });
@@ -433,13 +448,28 @@ export default function App() {
             2. Se não encontrar a imagem, use uma URL do Picsum (https://picsum.photos/seed/product/800/600).
             3. A descrição deve ser curta e atrativa.`;
 
-          const response = await ai.models.generateContent({
-            model: "gemini-3-flash-preview",
+          // Helper for retry
+          const callWithRetry = async (fn: () => Promise<any>, retries = 2) => {
+            for (let i = 0; i <= retries; i++) {
+              try {
+                return await fn();
+              } catch (err: any) {
+                if (i < retries && err.message?.includes('503')) {
+                  await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+                  continue;
+                }
+                throw err;
+              }
+            }
+          };
+
+          const response = await callWithRetry(() => ai.models.generateContent({
+            model: "gemini-flash-latest",
             contents: prompt,
             config: {
               tools: tools as any
             }
-          });
+          }));
 
           const text = response.text || '';
           const jsonMatch = text.match(/\{.*\}/s);
