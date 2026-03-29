@@ -197,11 +197,11 @@ export default function App() {
         }
       };
 
-      const model = await callWithRetry(() => ai.models.get({ model: "gemini-1.5-flash-latest" }));
+      const model = await callWithRetry(() => ai.models.get({ model: "gemini-flash-latest" }));
       
       // Try a very simple generation to be sure
       const result = await callWithRetry(() => ai.models.generateContent({
-        model: "gemini-1.5-flash-latest",
+        model: "gemini-flash-latest",
         contents: "Oi",
         config: { maxOutputTokens: 1 }
       }));
@@ -401,6 +401,46 @@ export default function App() {
     return products.filter(p => p.category === selectedCategory);
   }, [selectedCategory, products]);
 
+  const handleQuickScrape = async () => {
+    if (!importText.trim() || !importText.includes('http')) {
+      setToast({ message: "Insira um link válido para a raspagem direta.", type: 'error' });
+      return;
+    }
+    
+    setIsImporting(true);
+    try {
+      const scrapeRes = await fetch('/api/scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: importText })
+      });
+      
+      if (scrapeRes.ok) {
+        const scrapeData = await scrapeRes.json();
+        
+        setNewProduct(prev => ({
+          ...prev,
+          title: scrapeData.title || prev.title,
+          imageUrl: scrapeData.imageUrl || prev.imageUrl,
+          affiliateLink: importText,
+          platform: importText.includes('mercadolivre') ? 'Mercado Livre' : 
+                    importText.includes('shopee') ? 'Shopee' : 
+                    importText.includes('amazon') ? 'Amazon' : 'Outra'
+        }));
+        
+        setImportText('');
+        setToast({ message: "Dados básicos extraídos via raspagem direta!", type: 'success' });
+      } else {
+        throw new Error("Falha na raspagem direta.");
+      }
+    } catch (error) {
+      console.error("Erro na raspagem direta:", error);
+      setToast({ message: "Não foi possível extrair dados deste link. Tente o Importador Inteligente ou preencha manualmente.", type: 'error' });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   const handleSmartImport = async () => {
     if (!importText.trim()) return;
     
@@ -481,7 +521,7 @@ export default function App() {
           };
 
           const response = await callWithRetry(() => ai.models.generateContent({
-            model: "gemini-1.5-flash-latest",
+            model: "gemini-flash-latest",
             contents: prompt,
             config: {
               tools: tools as any
@@ -1111,7 +1151,7 @@ export default function App() {
                   <p className="text-xs text-orange-600 mb-4">
                     Cole o link do produto ou o texto copiado da sua lista de desejos abaixo.
                   </p>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <input 
                       type="text" 
                       placeholder="Cole o link ou texto aqui..."
@@ -1119,14 +1159,26 @@ export default function App() {
                       value={importText}
                       onChange={e => setImportText(e.target.value)}
                     />
-                    <button 
-                      onClick={handleSmartImport}
-                      disabled={isImporting}
-                      className="bg-orange-500 text-white px-4 py-2 rounded-xl font-bold text-sm hover:bg-orange-600 transition-colors flex items-center gap-2 disabled:opacity-50"
-                    >
-                      {isImporting ? <Wand2 size={18} className="animate-spin" /> : <Wand2 size={18} />}
-                      {isImporting ? 'Lendo...' : 'Importar'}
-                    </button>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={handleSmartImport}
+                        disabled={isImporting || !importText.trim()}
+                        className="flex-1 sm:flex-none bg-orange-500 text-white px-4 py-2 rounded-xl font-bold text-sm hover:bg-orange-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                        title="Usa Inteligência Artificial para extrair todos os detalhes"
+                      >
+                        {isImporting ? <Wand2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+                        {isImporting ? 'Lendo...' : 'IA'}
+                      </button>
+                      <button 
+                        onClick={handleQuickScrape}
+                        disabled={isImporting || !importText.trim() || !importText.includes('http')}
+                        className="flex-1 sm:flex-none bg-white border border-orange-200 text-orange-600 px-4 py-2 rounded-xl font-bold text-sm hover:bg-orange-50 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                        title="Extração rápida de título e imagem sem usar IA"
+                      >
+                        <Zap size={18} className="text-yellow-500" />
+                        Rápido
+                      </button>
+                    </div>
                   </div>
                   <div className="mt-3 flex items-start gap-2 text-[10px] text-orange-500">
                     <AlertCircle size={12} className="mt-0.5 flex-shrink-0" />

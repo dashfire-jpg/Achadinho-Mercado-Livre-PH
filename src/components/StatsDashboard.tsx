@@ -50,10 +50,17 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({ isOpen, onClose 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<number>(7); // Default to last 7 days
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       fetchStats();
+      // Delay chart rendering to allow modal animation to complete
+      const timer = setTimeout(() => setIsReady(true), 500);
+      return () => {
+        clearTimeout(timer);
+        setIsReady(false);
+      };
     }
   }, [isOpen, period]);
 
@@ -269,42 +276,48 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({ isOpen, onClose 
                       Acessos por Dia
                     </h3>
                     <div className="h-[300px] w-full min-h-[300px]">
-                      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                        <LineChart data={getDailyData()}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                          <XAxis 
-                            dataKey="name" 
-                            axisLine={false} 
-                            tickLine={false} 
-                            tick={{ fontSize: 10, fill: '#9ca3af' }}
-                            dy={10}
-                          />
-                          <YAxis 
-                            axisLine={false} 
-                            tickLine={false} 
-                            tick={{ fontSize: 10, fill: '#9ca3af' }}
-                          />
-                          <Tooltip 
-                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                          />
-                          <Line 
-                            type="monotone" 
-                            dataKey="visitas" 
-                            stroke="#3B82F6" 
-                            strokeWidth={3} 
-                            dot={{ r: 4, fill: '#3B82F6', strokeWidth: 2, stroke: '#fff' }}
-                            activeDot={{ r: 6, strokeWidth: 0 }}
-                          />
-                          <Line 
-                            type="monotone" 
-                            dataKey="cliques" 
-                            stroke="#F97316" 
-                            strokeWidth={3} 
-                            dot={{ r: 4, fill: '#F97316', strokeWidth: 2, stroke: '#fff' }}
-                            activeDot={{ r: 6, strokeWidth: 0 }}
-                          />
-                        </LineChart>
-                      </ResponsiveContainer>
+                      {isReady ? (
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                          <LineChart data={getDailyData()}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                            <XAxis 
+                              dataKey="name" 
+                              axisLine={false} 
+                              tickLine={false} 
+                              tick={{ fontSize: 10, fill: '#9ca3af' }}
+                              dy={10}
+                            />
+                            <YAxis 
+                              axisLine={false} 
+                              tickLine={false} 
+                              tick={{ fontSize: 10, fill: '#9ca3af' }}
+                            />
+                            <Tooltip 
+                              contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                            />
+                            <Line 
+                              type="monotone" 
+                              dataKey="visitas" 
+                              stroke="#3B82F6" 
+                              strokeWidth={3} 
+                              dot={{ r: 4, fill: '#3B82F6', strokeWidth: 2, stroke: '#fff' }}
+                              activeDot={{ r: 6, strokeWidth: 0 }}
+                            />
+                            <Line 
+                              type="monotone" 
+                              dataKey="cliques" 
+                              stroke="#F97316" 
+                              strokeWidth={3} 
+                              dot={{ r: 4, fill: '#F97316', strokeWidth: 2, stroke: '#fff' }}
+                              activeDot={{ r: 6, strokeWidth: 0 }}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="h-full w-full flex items-center justify-center">
+                          <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -314,29 +327,35 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({ isOpen, onClose 
                       Top 5 Produtos Clicados
                     </h3>
                     <div className="h-[300px] w-full min-h-[300px]">
-                      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                        <BarChart data={getProductClicks()} layout="vertical">
-                          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
-                          <XAxis type="number" hide />
-                          <YAxis 
-                            dataKey="title" 
-                            type="category" 
-                            axisLine={false} 
-                            tickLine={false} 
-                            tick={{ fontSize: 10, fill: '#4b5563' }}
-                            width={150}
-                          />
-                          <Tooltip 
-                            cursor={{ fill: '#f9fafb' }}
-                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                          />
-                          <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={20}>
-                            {getProductClicks().map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
+                      {isReady ? (
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                          <BarChart data={getProductClicks()} layout="vertical">
+                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
+                            <XAxis type="number" hide />
+                            <YAxis 
+                              dataKey="title" 
+                              type="category" 
+                              axisLine={false} 
+                              tickLine={false} 
+                              tick={{ fontSize: 10, fill: '#4b5563' }}
+                              width={150}
+                            />
+                            <Tooltip 
+                              cursor={{ fill: '#f9fafb' }}
+                              contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                            />
+                            <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={20}>
+                              {getProductClicks().map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="h-full w-full flex items-center justify-center">
+                          <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
