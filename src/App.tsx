@@ -8,7 +8,7 @@ import { CATEGORIES } from './constants';
 import { Product, Category } from './types';
 import { motion, AnimatePresence } from 'motion/react';
 import { blockchain } from './services/blockchain';
-import { ShoppingBag, Star, Zap, Bell, Plus, X, Link as LinkIcon, Tag, Image as ImageIcon, Info, Sparkles, Wand2, AlertCircle, Pencil, Upload, Settings, ShieldCheck, Wallet, BarChart3, ArrowUpRight } from 'lucide-react';
+import { ShoppingBag, Star, Zap, Bell, Plus, X, Link as LinkIcon, Tag, Image as ImageIcon, Info, Sparkles, Wand2, AlertCircle, Pencil, Upload, Settings, ShieldCheck, Wallet, BarChart3, ArrowUpRight, Mail, Heart } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { 
   collection, 
@@ -1367,8 +1367,16 @@ export default function App() {
             </div>
 
             <div>
-              <h4 className="font-bold text-gray-900 mb-6">Parceiros</h4>
+              <h4 className="font-bold text-gray-900 mb-6">Contato & Apoio</h4>
               <ul className="space-y-4 text-sm text-gray-500">
+                <li className="flex items-center gap-2">
+                  <Mail size={14} className="text-orange-500" />
+                  <a href="mailto:dashfire@gmail.com" className="hover:text-black transition-colors">dashfire@gmail.com</a>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Heart size={14} className="text-orange-500" />
+                  <span>Apoie via PIX: dashfire@gmail.com</span>
+                </li>
                 <li>
                   <a 
                     href="https://www.profitablecpmratenetwork.com/ubb8kaqc?key=250d1b5c95fb900a79457bf9fc040348" 
@@ -1382,6 +1390,12 @@ export default function App() {
                 </li>
               </ul>
             </div>
+          </div>
+          
+          <div className="mt-8 pt-8 border-t border-black/5">
+            <p className="text-[11px] text-gray-400 text-center leading-relaxed">
+              Este site é uma vitrine de indicações de produtos de outras plataformas. Não somos o vendedor final nem a plataforma de vendas, atuamos apenas na indicação e curadoria dos melhores achadinhos da internet.
+            </p>
           </div>
           
           <div className="pt-8 border-t border-black/5 flex flex-col md:flex-row justify-between items-center gap-4">
